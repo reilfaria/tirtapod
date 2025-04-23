@@ -7,6 +7,7 @@
 //#include "pidmpu.h"
 #include <Wire.h>
 #include <U8g2lib.h>
+#include "pd_controller.h"
 
 enum mode{
   L,
@@ -307,41 +308,36 @@ void setup() {
 //=====Fungsi KOMPASSSSSSSSSSSSSSSSS
 
 
-// Fungsi Kompas
+// Fungsi radius yang diperbarui
 int radius(int targetHeading, mode type = F, int coffset = 15) {
-  int heading = compass::heading();
-  int lowerBound, upperBound;
-  switch (type){
-  case R:
-    lowerBound = targetHeading;
-    upperBound = targetHeading + (2 * coffset);
-    break;
-  case L:
-    lowerBound = targetHeading - (2 * coffset);
-    upperBound = targetHeading;
-    break;
-  case F:
-    lowerBound = targetHeading - coffset;
-    upperBound = targetHeading + coffset;
-    break;
-  
-  }
-
-  if (lowerBound < 0) lowerBound += 360;
-  if (upperBound >= 360) upperBound -= 360;
-
-  if ((lowerBound < upperBound && (heading >= lowerBound && heading <= upperBound)) || (lowerBound > upperBound && (heading >= lowerBound || heading <= upperBound))) {
-    return 0;
-  } else {
-    int clockwiseDistance = (targetHeading - heading + 360) % 360;
-    int counterClockwiseDistance = (heading - targetHeading + 360) % 360;
-
-    if (clockwiseDistance < counterClockwiseDistance) {
-      return 1;
-    } else {
-      return -1;
+    float heading = compass::heading();
+    float pd_output;
+    
+    float actualTarget;
+    switch (type) {
+        case R:
+            actualTarget = targetHeading + coffset;
+            break;
+        case L:
+            actualTarget = targetHeading - coffset;
+            break;
+        case F:
+            actualTarget = targetHeading;
+            break;
     }
-  }
+    
+    if (actualTarget < 0) actualTarget += 360;
+    if (actualTarget >= 360) actualTarget -= 360;
+    
+    pd_output = pd_controller::calculate_compass_pd(actualTarget);
+    float threshold = 5.0;
+    
+    if (abs(pd_output) < threshold) {
+        return 0;
+    } else {
+        legs::walkspeed = constrain(abs(pd_output) * 2 + 100, 100, 200);
+        return (pd_output > 0) ? 1 : -1;
+    }
 }
 
 
@@ -474,52 +470,140 @@ void loop() {
           legs::rotate_left_low_fast();
         }
       } else {
-        //Ruangan 1
-
+       // Implementasi ruangan 1 dengan PD
         if (overallhome == true && overallR1 == false) {
-          if (human[1] == false && camerastate[1] == false) {
-            TOFKiri = TOF::getkiri();
-            if (TOFKiri > 550) {
-              camerastate[1] = true;
-              while (millis() - gettimeR1N <= 1200){
-              legs::walkspeed = 150;
-              legs::backward_low();
-              oled.clearBuffer();
-              oledPrint("Get", 30);
-              oledPrint("Human", 50);
-              oled.sendBuffer();
-      
-             }
-             delay(500);
-              
-            } else {
-              legs::walkspeed = 150;
-              legs::shift_right_low();
-              gettimeR1N = millis();
+            // Update setpoint kompas untuk ruangan 1
+            pd_controller::update_compass_setpoint(1, isRight);
+            
+            if (human[1] == false && camerastate[1] == false) {
+                TOFKiri = TOF::getkiri();
+                
+                // Debug output
+                Serial.println("TOF Kiri: " + String(TOFKiri));
+                Serial.println("Compass Heading: " + String(compass::heading()));
+                
+                // PD untuk TOF
+                auto& current_room_params = pd_controller::get_room_params(1);
+                float tof_pd_output = pd_controller::calculate_pd(
+                    current_room_params.left, 
+                    TOFKiri
+                );
+                
+                if (TOFKiri > current_room_params.left.setpoint) {
+                    camerastate[1] = true;
+                    pd_controller::reset_room_params(current_room_params);
+                    
+                    while (millis() - gettimeR1N <= 1200) {
+                        legs::walkspeed = 150;
+                        legs::backward_low();
+                        
+                        // Jaga orientasi selama mundur
+                        int comVal = radius(pd_controller::compass_params.setpoint, F);
+                        if (comVal != 0) {
+                            if (comVal == 1) {
+                                legs::rotate_right_low();
+                            } else {
+                                legs::rotate_left_low();
+                            }
+                        }
+                        
+                        oled.clearBuffer();
+                        oledPrint("Get", 30);
+                        oledPrint("Human", 50);
+                        oled.sendBuffer();
+                    }
+                    delay(500);
+                    
+                } else {
+                    // Kombinasi PD TOF dan kompas
+                    legs::walkspeed = constrain(150 + tof_pd_output, 100, 200);
+                    
+                    int comVal = radius(pd_controller::compass_params.setpoint, F);
+                    if (comVal == 0) {
+                        legs::shift_right_low();
+                    } else if (comVal == 1) {
+                        legs::rotate_right_low();
+                    } else {
+                        legs::rotate_left_low();
+                    }
+                    
+                    // Debug output
+                    Serial.println("TOF PD Output: " + String(tof_pd_output));
+                    Serial.println("Current Speed: " + String(legs::walkspeed));
+                }
             }
-          }
-          if (human[1] == false && camerastate[1] == true) {
-
-            Serial.println("Get Human");
-//            oled.clearBuffer();
-//            oled.setFont(u8g2_font_fub14_tr);
-//            oled.drawStr(38, 27, "GET");
-//            oled.drawStr(32, 51, "HUMAN");
-//            oled.sendBuffer();
-            gethuman_low(1);
-            capitnaik = true;
-            gettimeR1 = millis();
-          }
-          if (human[1] == true && camerastate[1] == true) {
-            while (millis() - gettimeR1 <= 2000) {
-              legs::backward_low();
+            
+            if (human[1] == false && camerastate[1] == true) {
+                x = cam::camx;
+                
+                // Debug output
+                Serial.println("Camera X: " + String(x));
+                
+                // PD untuk tracking kamera
+                float camera_pd_output = pd_controller::calculate_pd(
+                    pd_controller::camera_params, 
+                    x
+                );
+                
+                if (abs(x - cam::center) < 10) {
+                    pd_controller::reset_pd(pd_controller::camera_params);
+                    
+                    Serial.println("Get Human");
+                    gethuman_low(1);
+                    capitnaik = true;
+                    gettimeR1 = millis();
+                    
+                } else {
+                    // Kombinasi PD kamera dan kompas
+                    legs::walkspeed = constrain(150 + abs(camera_pd_output), 100, 200);
+                    
+                    if (camera_pd_output > 0) {
+                        legs::shift_right_low();
+                    } else {
+                        legs::shift_left_low();
+                    }
+                    
+                    // Jaga orientasi
+                    int comVal = radius(pd_controller::compass_params.setpoint, F);
+                    if (comVal != 0) {
+                        if (comVal == 1) {
+                            legs::rotate_right_low();
+                        } else {
+                            legs::rotate_left_low();
+                        }
+                    }
+                    
+                    // Debug output
+                    Serial.println("Camera PD Output: " + String(camera_pd_output));
+                }
             }
-            overallR1 = true;
-            oled.clearBuffer();
-            oledPrint("Ruangan", 30);
-            oledPrint("2", 50);
-            oled.sendBuffer();
-          }
+            
+            if (human[1] == true && camerastate[1] == true) {
+                while (millis() - gettimeR1 <= 2000) {
+                    legs::backward_low();
+                    
+                    // Jaga orientasi selama mundur
+                    int comVal = radius(pd_controller::compass_params.setpoint, F);
+                    if (comVal != 0) {
+                        if (comVal == 1) {
+                            legs::rotate_right_low();
+                        } else {
+                            legs::rotate_left_low();
+                        }
+                    }
+                }
+                
+                // Reset semua controller PD
+                pd_controller::reset_room_params(pd_controller::get_room_params(1));
+                pd_controller::reset_pd(pd_controller::camera_params);
+                pd_controller::reset_pd(pd_controller::compass_params);
+                
+                overallR1 = true;
+                oled.clearBuffer();
+                oledPrint("Ruangan", 30);
+                oledPrint("2", 50);
+                oled.sendBuffer();
+            }
         }
 
         //      if (overallhome == true && overallR1 == false) {
