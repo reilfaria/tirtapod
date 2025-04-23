@@ -7,7 +7,6 @@
 //#include "pidmpu.h"
 #include <Wire.h>
 #include <U8g2lib.h>
-#include "pid_control.h"
 
 enum mode{
   L,
@@ -108,13 +107,11 @@ long int waktu = 0;
 bool buttonstate = false;
 bool point0state = true;
 bool posisi[] = { false, false, false, false, false, false };
-
+bool human[] = { false, false, false, false, false, false };
+bool camerastate[] = { false, false, false, false, false, false };
 volatile int TOFKanan, TOFSKanan, TOFDepan, TOFKiri, TOFSKiri, TOFCapit;
 bool isRight;
 char incomingByte;
-
-bool human[3] = {false, false, false};
-bool camerastate[3] = {false, false, false};
 
 //raspicam2 parameter
 int x;
@@ -162,7 +159,7 @@ int cposR[] = { 0, 0, 178, 270, 187, 186, 100, 102, 94, 88 };
 int cposhumanR[] = { 0 ,170, 96, 352, 349, 115 };
 //////////////////////| H1 | H2 | H3 | H4 | H5 |///////Human
 
-int cpossafeR[] = { 0, 308, 222, 133, 78, 102 };
+int cpossafeR[] = { 0, 317, 222, 133, 78, 102 };
 ////////////////////| S1 | S2 | S3 | S4 | S5 |///////SafeZone
 
 
@@ -203,7 +200,7 @@ unsigned long int gettimehome = 0;
 
 // Logic For R1
 bool overallR1 = false;
-
+unsigned long int gettimeR1 = 0;
 unsigned long int gettimeR1N = 0;
 bool positioningR3 = false;
 bool camerastate1 = false;
@@ -278,11 +275,6 @@ bool lurus = false;
 bool positioningR9 = false;
 bool kompas9 = false;
 bool left = false;
-
-static int pdState = 0;
-static unsigned long stopTime = 0;
-static unsigned long backTime = 0;
-static unsigned long gettimeR1 = 0;
 
 void setup() {
   Serial.begin(38400);
@@ -482,68 +474,54 @@ void loop() {
           legs::rotate_left_low_fast();
         }
       } else {
+        //Ruangan 1
 
-        //RUANGAN 1
         if (overallhome == true && overallR1 == false) {
-            if (pdState == 0) {
-                // PD shifting ke TOF kiri 600
-                bool onTarget = shiftToTargetPD(TOF::getkiri, 600, 10, legs::shift_right_low, legs::shift_left_low);
-                if (onTarget) {
-                    stopTime = millis();
-                    pdState = 1;
-                }
-            } else if (pdState == 1) {
-                legs::point_ready();
-                if (millis() - stopTime > 100) {
-                    backTime = millis();
-                    pdState = 2;
-                }
-            } else if (pdState == 2) {
-                legs::walkspeed = 150;
-                legs::backward_low();
-                if (millis() - backTime > 1500) {
-                    stopTime = millis();
-                    pdState = 3;
-                }
-            } else if (pdState == 3) {
-                legs::point_ready();
-                if (millis() - stopTime > 100) {
-                    pdState = 4;
-                }
-            } else if (pdState == 4) {
-                // Align posisi korban di depan capit (pakai kamera & TOF depan)
-                bool aligned = alignWithCameraAndTOF();
-                if (aligned) {
-                    stopTime = millis();
-                    pdState = 5;
-                }
-            } else if (pdState == 5) {
-                legs::point_ready();
-                if (millis() - stopTime > 100) {
-                    camerastate[1] = true;
-                    pdState = 6;
-                }
-            } else if (pdState == 6) {
-                // Ambil korban pakai state machine non-blocking
-                bool done = gethuman_low_state(1);
-                if (done) {
-                    gettimeR1 = millis();
-                    pdState = 7;
-                }
-            } else if (pdState == 7) {
-                // Mundur sebentar setelah ambil korban
-                if (millis() - gettimeR1 <= 2000) {
-                    legs::backward_low();
-                } else {
-                    // Reset flag, lanjut ke ruangan 2
-                    overallR1 = true;
-                    pdState = 0; // penting! agar bisa lanjut ke ruangan berikutnya
-                    // reset flag state gethuman ruangan berikutnya jika perlu
-                    camerastate[2] = false;
-                    human[2] = false;
-                }
+          if (human[1] == false && camerastate[1] == false) {
+            TOFKiri = TOF::getkiri();
+            if (TOFKiri > 550) {
+              camerastate[1] = true;
+              while (millis() - gettimeR1N <= 1200){
+              legs::walkspeed = 150;
+              legs::backward_low();
+              oled.clearBuffer();
+              oledPrint("Get", 30);
+              oledPrint("Human", 50);
+              oled.sendBuffer();
+      
+             }
+             delay(500);
+              
+            } else {
+              legs::walkspeed = 150;
+              legs::shift_right_low();
+              gettimeR1N = millis();
             }
+          }
+          if (human[1] == false && camerastate[1] == true) {
+
+            Serial.println("Get Human");
+//            oled.clearBuffer();
+//            oled.setFont(u8g2_font_fub14_tr);
+//            oled.drawStr(38, 27, "GET");
+//            oled.drawStr(32, 51, "HUMAN");
+//            oled.sendBuffer();
+            gethuman_low(1);
+            capitnaik = true;
+            gettimeR1 = millis();
+          }
+          if (human[1] == true && camerastate[1] == true) {
+            while (millis() - gettimeR1 <= 2000) {
+              legs::backward_low();
+            }
+            overallR1 = true;
+            oled.clearBuffer();
+            oledPrint("Ruangan", 30);
+            oledPrint("2", 50);
+            oled.sendBuffer();
+          }
         }
+
         //      if (overallhome == true && overallR1 == false) {
         //        if (human[1] == false && camerastate[1] == false) {
         //          Serial.println(String()+"Saat ini Rotate Left R1||"+compass::heading());
