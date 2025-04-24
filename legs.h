@@ -1141,9 +1141,12 @@ String shift6_right_ssc(int x) {
 //  float YRTravel[2] = { 0 + travel, 0 };
   float YLTravel[2] = { -travelhalf, travelhalf};
   float YRTravel[2] = { travelhalf, -travelhalf};
-  float Travel1[2] = { 4, 4 };    // Maju,Mundur
+//  float Travel1[2] = { 4, 4 };    // Maju,Mundur
+//  float Travel2[2] = { 0, 0 };    // Maju,Mundur
+//  float Travel3[2] = { -4, -4 };  // Maju,Mundur
+  float Travel1[2] = { width , width };    // Maju,Mundur
   float Travel2[2] = { 0, 0 };    // Maju,Mundur
-  float Travel3[2] = { -4, -4 };  // Maju,Mundur
+  float Travel3[2] = { -width , -width };  // Maju,Mundur
   float L1[6][3] = {
     { Travel1[0] + C0L[0][0], YLTravel[0] + C0L[0][1], kakiNaik + C0L[0][2] },  // x,y,z
     { Travel1[0] + C0L[0][0], YLTravel[0] + C0L[0][1], kakiTurun + C0L[0][2] },
@@ -1314,7 +1317,7 @@ String forward6_setupmpuup_ssc(int x) {
 
 String forward6_mpuup_ssc(int x) {
   walkspeed = 200;
-  float kakiNaik = -0.5;  // bates tinggi - 2
+  float kakiNaik = -1;  // bates tinggi - 2
   float kakiTurun = 2.5;  // 0
   float Cal[3] = { -3, -3.2, 0.5 };
   float Travel1[2] = { 7, 4 };    // Maju,Mundur
@@ -2592,7 +2595,7 @@ void CapitTurun2() {
 }
 void CapitTurun3() {
   int pwm = 1000;  //< turun
-  Serial2.print("#3 P" + String(pwm) + " #20 P" + String(3000 - pwm) + " #7 P1100 #16 P0 T400 \r");  //kanan //kiri //engsel //capit
+  Serial2.print("#3 P" + String(pwm) + " #20 P" + String(3000 - pwm) + " #7 P800 #16 P0 T400 \r");  //kanan //kiri //engsel //capit
   delay(400);
 }
 void CapitJepit() {
@@ -2632,6 +2635,25 @@ void capitnaik(int type) {
 }
 void capitturun(int type) {
   int pwme;
+  int pwm = 1000;  //< turun
+  switch (type){
+    case 1:
+      pwme = 800;
+      break;
+    case 2:
+      pwme = 2000;
+      break;
+    case 3:
+      pwme = 500;
+      break;
+    case 4:
+      pwme = 1000;
+  }
+  Serial2.print("#3 P" + String(pwm) + " #20 P" + String(3000 - pwm) + "#7 P" + String(pwme) + "T150 \r");
+  delay(150);
+}
+void capitturun2(int type) {
+  int pwme;
   int pwm = 800;  //< turun
   switch (type){
     case 1:
@@ -2639,6 +2661,12 @@ void capitturun(int type) {
       break;
     case 2:
       pwme = 2000;
+      break;
+    case 3:
+      pwme = 500;
+      break;
+    case 4:
+      pwme = 1000;
   }
   Serial2.print("#3 P" + String(pwm) + " #20 P" + String(3000 - pwm) + "#7 P" + String(pwme) + "T150 \r");
   delay(150);
@@ -2967,7 +2995,7 @@ void shift_left_slow() {
 void shift_left_low() {
   kakiNaik = -1;
   kakiTurun = 0;
-  travel = 2;
+  travel = 5;
   travelhalf = travel / 2;
   movetype(eshift_left);
 }
@@ -3020,6 +3048,14 @@ void shift6_left_slow() {
 void shift6_left_fast() {
   kakiNaik = -4 ; 
   kakiTurun = 0 ; 
+  travel = 4 ;
+  travelhalf = travel / 2;
+  width = 4;
+  movetype(eshift6_left);
+}
+void shift6_left_high_fast() {
+  kakiNaik = -3 ; 
+  kakiTurun = 1 ; 
   travel = 4 ;
   travelhalf = travel / 2;
   width = 4;
@@ -3087,6 +3123,7 @@ void shift6_right() {
   kakiTurun = 0 ; 
   travel = 2 ;
   travelhalf = travel / 2;
+  width = 4;
   movetype(eshift6_right);
 }
 void shift6_right_1cm() {
@@ -3094,6 +3131,7 @@ void shift6_right_1cm() {
   kakiTurun = 0 ; 
   travel = 1 ;
   travelhalf = travel / 2;
+  width = 4;
   movetype(eshift6_right);
 }
 void shift6_right_high() {
@@ -3101,6 +3139,7 @@ void shift6_right_high() {
   kakiTurun = 1 ; 
   travel = 2 ;
   travelhalf = travel / 2;
+  width = 4;
   movetype(eshift6_right);
 }
 void shift6_right_fast() {
@@ -3108,6 +3147,7 @@ void shift6_right_fast() {
   kakiTurun = 0 ; 
   travel = 6 ;
   travelhalf = travel / 2;
+  width = 4;
   movetype(eshift6_right);
 }
 void shift6_right_high_fast() {
@@ -3115,6 +3155,7 @@ void shift6_right_high_fast() {
   kakiTurun = 1 ; 
   travel = 4 ;
   travelhalf = travel / 2;
+  width = 4;
   movetype(eshift6_right);
 }
 void shift6_right_slow() {
@@ -3122,6 +3163,7 @@ void shift6_right_slow() {
   kakiTurun = 0 ; 
   travel = 0.5 ;
   travelhalf = travel / 2;
+  width = 4;
   movetype(eshift6_right);
 }
 void shift6_right_bridge() {
