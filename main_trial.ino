@@ -153,10 +153,10 @@ unsigned long int camtime = 0;
 int cposhomeR = 57;
 //////////////| HOME |////
 
-int cposR[] = { 0, 0, 57, 104, 187, 186, 100, 102, 94, 88 };
+int cposR[] = { 0, 0, 57, 108, 60, 186, 100, 102, 94, 88 };
 ////////////////////| R2 | R3 | R4 | R5 | R6 | R7 | R8 | R9 |///////Ruangan
 
-int cposhumanR[] = { 0 ,1, 96, 352, 349, 115 };
+int cposhumanR[] = { 0 ,1, 186, 352, 349, 115 };
 //////////////////////| H1 | H2 | H3 | H4 | H5 |///////Human
 
 int cpossafeR[] = { 0, 119, 222, 133, 78, 102 };
@@ -276,6 +276,96 @@ bool positioningR9 = false;
 bool kompas9 = false;
 bool left = false;
 
+
+// ==== TEST BYPASS CONFIG ====
+int TEST_START_ROOM = 0;   // ganti sesuai ruangan yang mau ditest. 0 = normal run dari home
+
+void applyTestBypass(int room) {
+  // Home
+  if (room >= 1) {
+    homestate = true;
+    overallhome = true;
+  }
+
+  // Ruangan 1 selesai
+  if (room >= 2) {
+    overallR1 = true;
+    human[1] = true;
+    camerastate[1] = true;
+    capitnaik = true;      // <-- pindahkan ke sini
+  }
+
+  // Ruangan 2 selesai / mau mulai R3
+  if (room >= 3) {
+    overallR2 = true;
+    tembok2kiri = true;
+    positioningR2 = true;
+    // capitnaik dihapus dari sini
+  }
+
+  // Ruangan 3 selesai
+  if (room >= 4) {
+    overallR3 = true;
+    front3 = true;
+    tembok3 = true;
+    kompas3 = true;
+    human1aman = true;
+    stateback = true;
+    tembok3kanan = true;
+    // capitnaik dihapus dari sini
+  }
+
+  // Ruangan 4 selesai  (cek ulang flag ini vs logic asli R4 kamu)
+  if (room >= 5) {
+    overallR4 = true;
+    tembok4 = true;
+    kompas4 = true;
+    tembok4kanan = true;
+    human2aman = true;
+    positioningR4 = true;
+    front4 = true;
+    camerastate2 = true;
+  }
+
+  // Ruangan 5 selesai
+  if (room >= 6) {
+    overallR5 = true;
+    positioningR5 = true;
+    right = true;
+    kompas5 = true;
+    tembok5 = true;
+  }
+
+  // Ruangan 6 selesai
+  if (room >= 7) {
+    overallR6 = true;
+    positioningR6 = true;
+    wallfollowingR6 = true;
+    front6 = true;
+    tembok6kanan = true;
+  }
+
+  // Ruangan 7 selesai
+  if (room >= 8) {
+    overallR7 = true;
+    kiri = true;
+    stuck = true;
+    tembok7 = true;
+    sebelumnanjak = true;
+    nanjak = true;
+    posisi7 = true;
+  }
+
+  // Ruangan 8 selesai
+  if (room >= 9) {
+    overallR8 = true;
+    positioningR8 = true;
+    front8 = true;
+    human4aman = true;
+    kompas8 = true;
+  }
+}
+
 void setup() {
   Serial.begin(38400);
   
@@ -298,6 +388,7 @@ void setup() {
   legs::capitbuka();
   delay(200);
   isRight = digitalRead(toggle);
+  applyTestBypass(TEST_START_ROOM);
 //  Serial.println(String() + "Compass : " + compass::heading());
 ////    Serial.println(String() + "MPU : " + compass::pitch());
 //  Serial.println(String() + TOF::getkanan() + "\t" + TOF::getserongkanan() + "\t" + TOF::getdepan() + "\t" + TOF::getserongkiri() + "\t" + TOF::getkiri() + "\t" + TOF::getcapit() + "\t");
@@ -697,9 +788,9 @@ void loop() {
               }
             }
             if (front3 == true) {
-              if (TOFKanan < 160) {
+              if (TOFKanan < 140) {
                 legs::shift6_left();
-              } else if (TOFKanan > 180) {
+              } else if (TOFKanan > 150) {
                 legs::shift6_right();
               } else {
                 tembok3 = true;
