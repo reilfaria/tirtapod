@@ -779,16 +779,16 @@ void loop() {
 //            oled.drawStr(34, 58, "DEPAN");
 //            oled.sendBuffer();
             if (front3 == false) {
-              if (TOFDepan < 250) {
+              if (TOFDepan < 270) {
                 legs::backward6();
-              } else if (TOFDepan > 270) {
+              } else if (TOFDepan > 290) {
                 legs::forward6();
               } else {
                 front3 = true;
               }
             }
             if (front3 == true) {
-              if (TOFKanan < 140) {
+              if (TOFKanan < 130) {
                 legs::shift6_left();
               } else if (TOFKanan > 150) {
                 legs::shift6_right();
@@ -853,7 +853,7 @@ void loop() {
             }
             stateback = true;
           }
-          if (human1aman == true && positioningR3 == true && kompas3 == true && tembok3 == true && stateback == true) {
+                  if (human1aman == true && positioningR3 == true && kompas3 == true && tembok3 == true && stateback == true) {
             TOFKanan = TOF::getkanan();
             legs::walkspeed = 150;
             Serial.println("Ruangan 4");
@@ -870,13 +870,18 @@ void loop() {
               legs::walkspeed = 150;
               int comVal = radius(cposR[4],L);
               if (comVal == 0) {
+                unsigned long t = millis();
+                while (millis() - t <= 1000) {
+                  legs::forward6();
+                }
                 tembok3kanan = true;
               } else {
                 legs::rotate6_left_fast();
               }
             }
             if (capitnaik == true && tembok3kanan == true) {
-              if (TOFKanan > 160) {
+              TOFKanan = TOF::getkanan();
+              if (TOFKanan > 130) {
                 legs::shift6_right();
               } else {
                 overallR3 = true;
