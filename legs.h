@@ -2647,7 +2647,7 @@ void capitturun(int type) {
       pwme = 500;
       break;
     case 4:
-      pwme = 1000;
+      pwme = 1200;
   }
   Serial2.print("#3 P" + String(pwm) + " #20 P" + String(3000 - pwm) + "#7 P" + String(pwme) + "T150 \r");
   delay(150);
