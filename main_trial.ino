@@ -97,7 +97,7 @@ const uint8_t degreeSymbol[] U8X8_PROGMEM = {
 
 #define button0 0
 #define button1 1
-#define toggle 6
+#define toggle 10
 
 bool tengah = false;
 
@@ -153,10 +153,10 @@ unsigned long int camtime = 0;
 int cposhomeR = 57;
 //////////////| HOME |////
 
-int cposR[] = { 0, 0, 57, 108, 60, 186, 100, 102, 94, 88 };
+int cposR[] = { 0, 0, 57, 108, 25, 24, 188, 102, 94, 88 };
 ////////////////////| R2 | R3 | R4 | R5 | R6 | R7 | R8 | R9 |///////Ruangan
 
-int cposhumanR[] = { 0 ,1, 186, 352, 349, 115 };
+int cposhumanR[] = { 0 ,1, 200, 352, 349, 115 };
 //////////////////////| H1 | H2 | H3 | H4 | H5 |///////Human
 
 int cpossafeR[] = { 0, 119, 222, 133, 78, 102 };
@@ -278,7 +278,7 @@ bool left = false;
 
 
 // ==== TEST BYPASS CONFIG ====
-int TEST_START_ROOM = 0;   // ganti sesuai ruangan yang mau ditest. 0 = normal run dari home
+int TEST_START_ROOM = 4;   // ganti sesuai ruangan yang mau ditest. 0 = normal run dari home
 
 void applyTestBypass(int room) {
   // Home
@@ -891,7 +891,7 @@ void loop() {
                 oled.sendBuffer();
               }
             }
-          }
+          }  
         }
 
         // Ruangan 4
@@ -1077,6 +1077,7 @@ void loop() {
             }
             if (capitnaik == true) {
               int comVal = radius(cposR[5],L);
+              //  int comVal = radius(60);
               if (comVal == 0) {
                 overallR4 = true;
                 oled.clearBuffer();
@@ -1105,7 +1106,7 @@ void loop() {
 //            oled.drawStr(16, 51, "POSITIONING");
 //            oled.sendBuffer();
             if (right == false) {
-              if (TOFKanan < 350) {
+              if (TOFKanan < 295) {
                 legs::walkspeed = 150;
                 legs::shift6_left_fast();
               } else {
@@ -1132,6 +1133,7 @@ void loop() {
             //            legs::backward6();
             //          }
             //          if (compass::heading() <= cposR[6] + coffset && compass::heading() >= cposR[6] - coffset) {
+            // int comVal = radius(40);
             int comVal = radius(cposR[5],F);
             if (comVal == 0) {
               legs::walkspeed = 150;
@@ -1151,6 +1153,7 @@ void loop() {
             TOFDepan = TOF::getdepan();
             TOFKanan = TOF::getkanan();
             Serial.println("cek tembok 5 depan");
+            tembok5 = true;
 //            oled.clearBuffer();
 //            oled.setFont(u8g2_font_fub11_tr);
 //            oled.drawStr(34, 18, "CHECK");
@@ -1173,12 +1176,13 @@ void loop() {
 //                }
 //              }
 //            }
-            //tof geser//
+            tof geser//
             if (TOFKanan > 520) {
               tembok5 = true;
             } else {
               legs::walkspeed = 180;
               int comVal = radius(cposR[5],F);
+              // int comVal = radius(25);
               if(comVal == -1){
                 legs::rotate_left_1cm();
               } else if (comVal == 1){
@@ -1188,7 +1192,6 @@ void loop() {
               } else {
                 legs::shift_left_fast();
               }
-              
             }
           }
           if (positioningR5 == true && kompas5 == true && tembok5 == true) {
