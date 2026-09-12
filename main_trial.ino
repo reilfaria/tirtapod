@@ -278,7 +278,7 @@ bool left = false;
 
 
 // ==== TEST BYPASS CONFIG ====
-int TEST_START_ROOM = 5;   // ganti sesuai ruangan yang mau ditest. 0 = normal run dari home
+int TEST_START_ROOM = 6;   // ganti sesuai ruangan yang mau ditest. 0 = normal run dari home
 
 void applyTestBypass(int room) {
   // Home
@@ -1320,18 +1320,18 @@ void loop() {
 //            oled.drawStr(16, 51, "POSITIONING");
 //            oled.sendBuffer();
             if (front6 == false) {
-              if (TOFDepan < 145) {
+              if (TOFDepan < 140) {
                 legs::backward6();
-              } else if (TOFDepan > 175) {
+              } else if (TOFDepan > 150) {
                 legs::forward6();
               } else {
                 front6 = true;
               }
             }
             if (front6 == true) {
-              if (TOFKiri < 210) {
+              if (TOFKiri < 200) {
                 legs::shift6_right();
-              } else if (TOFKiri > 240) {
+              } else if (TOFKiri > 220) {
                 legs::shift6_left();
               } else {
                 positioningR6 = true;
@@ -1341,32 +1341,80 @@ void loop() {
 
           if (wallfollowingR6 == true && positioningR6 == true && tembok6kanan == false) {
             legs::walkspeed = 150;
-            TOFKanan = TOF::getkanan();
-            Serial.println(TOFKanan);
-            Serial.println("cek tembok 6 kanan");
+            Serial.println("sapu ruangan 6");
 //            oled.clearBuffer();
-//            oled.setFont(u8g2_font_fub11_tr);
-//            oled.drawStr(34, 18, "CHECK");
-//            oled.drawStr(24, 38, "TEMBOK 6");
-//            oled.drawStr(34, 58, "KANAN");
+//            oled.setFont(u8g2_font_fub14_tr);
+//            oled.drawStr(34, 27, "SAPU");
+//            oled.drawStr(30, 51, "RUANGAN 6");
 //            oled.sendBuffer();
-            legs::shift6_right_fast();
-            if (TOFKanan <= 180) {
-              // Memulai penghitungan waktu jika belum dimulai
-              if (gettimeR6 == 0) {
-                gettimeR6 = millis();
-              }
-              // Memeriksa apakah telah 2 detik
-              if (millis() - gettimeR6 >= 2000) {
-                tembok6kanan = true;
-                legs::capitjepit();
-                legs::capitnaik(2);
-              }
-            } else {
-              // Mengatur ulang waktu mulai jika jarak lebih besar dari 20 cm
-              gettimeR6 = 0;
+            unsigned long t;
+
+            t = millis();
+            while (millis() - t <= 4000) {
+              legs::sapu();
             }
+
+            t = millis();
+            while (millis() - t <= 2000) {
+              legs::shift6_left_fast();
+            }
+
+            t = millis();
+            while (millis() - t <= 4000) {
+              legs::sapu();
+            }
+
+            t = millis();
+            while (millis() - t <= 2000) {
+              legs::backward6();
+            }
+
+            t = millis();
+            while (millis() - t <= 4000) {
+              legs::sapu();
+            }
+
+            t = millis();
+            while (millis() - t <= 2000) {
+              legs::shift6_right_fast();
+            }
+
+            t = millis();
+            while (millis() - t <= 4000) {
+              legs::sapu();
+            }
+
+            tembok6kanan = true;
           }
+// INI KODE ASLIII
+//           if (wallfollowingR6 == true && positioningR6 == true && tembok6kanan == false) {
+//             legs::walkspeed = 150;
+//             TOFKanan = TOF::getkanan();
+//             Serial.println(TOFKanan);
+//             Serial.println("cek tembok 6 kanan");
+// //            oled.clearBuffer();
+// //            oled.setFont(u8g2_font_fub11_tr);
+// //            oled.drawStr(34, 18, "CHECK");
+// //            oled.drawStr(24, 38, "TEMBOK 6");
+// //            oled.drawStr(34, 58, "KANAN");
+// //            oled.sendBuffer();
+//             legs::shift6_right_fast();
+//             if (TOFKanan <= 180) {
+//               // Memulai penghitungan waktu jika belum dimulai
+//               if (gettimeR6 == 0) {
+//                 gettimeR6 = millis();
+//               }
+//               // Memeriksa apakah telah 2 detik
+//               if (millis() - gettimeR6 >= 2000) {
+//                 tembok6kanan = true;
+//                 legs::capitjepit();
+//                 legs::capitnaik(2);
+//               }
+//             } else {
+//               // Mengatur ulang waktu mulai jika jarak lebih besar dari 20 cm
+//               gettimeR6 = 0;
+//             }
+//           }
           if (wallfollowingR6 == true && positioningR6 == true && tembok6kanan == true) {
             Serial.println("ruangan 7");
 //            oled.clearBuffer();
