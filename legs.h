@@ -41,6 +41,9 @@ enum type {
   epoint_forward,
   epoint_rotate_right,
   epoint_rotate_left,
+  ewave_hello, // baruuuu
+  edance,
+  esapu,
 };
 
 type move;
@@ -181,6 +184,7 @@ float C0R[3][3]{
 int walkspeed = 140;  // between 200-500 for better stability and 150 for better speed
 
 //=========================================END Posisi Kaki Awal/TItik 0 TIap Kaki=========
+
 
 
 //===================================Start of Matriks Langkah====================================
@@ -2504,6 +2508,217 @@ void turn6_left_mpuup_step() {
       break;
   }
 }
+String sapu_ssc(int x) {
+  // 5 kaki lain diam di posisi READY (sama kayak point_ready_state)
+  float L2s[3] = { 0     + C0L[1][0], 0    + C0L[1][1], 0 + C0L[1][2] };
+  float L3s[3] = { -7    + C0L[2][0], 2    + C0L[2][1], 0 + C0L[2][2] };
+  float R1s[3] = { 2.84  + C0R[2][0], -0.5 + C0R[2][1], 0 + C0R[2][2] };
+  float R2s[3] = { 0     + C0R[1][0], 0    + C0R[1][1], 0 + C0R[1][2] };
+  float R3s[3] = { -7    + C0R[2][0], 2    + C0R[2][1], 0 + C0R[2][2] };
+
+  // Kaki L1 yang gerak nyapu — 4 frame sesuai urutan yang diminta
+  float L1[4][3] = {
+    { 11 + C0L[0][0], -1 + C0L[0][1], -4 + C0L[0][2] },  // 0: angkat, posisi awal
+    { 11 + C0L[0][0], -1 + C0L[0][1],  0 + C0L[0][2] },  // 1: turun (nyentuh/nyapu)
+    {  0 + C0L[0][0],  5 + C0L[0][1],  0 + C0L[0][2] },  // 2: tarik nyapu, masih nempel
+    {  0 + C0L[0][0],  5 + C0L[0][1], -4 + C0L[0][2] },  // 3: angkat lagi, siap ulang
+  };
+
+  //================================================== L1 (nyapu) ==================================================
+  int gamaL1  = round(L01[0] + myFunctionPWM(getgamaL(L1[x][0], L1[x][1], L1[x][2])));
+  int alphaL1 = round(L01[1] + myFunctionPWM(getalphaL(L1[x][0], L1[x][1], L1[x][2])));
+  int betaL1  = round(L01[2] + myFunctionPWM(getbetaL(L1[x][0], L1[x][1], L1[x][2])));
+  //================================================== L2 (ready) ==================================================
+  int gamaL2  = round(L02[0] + myFunctionPWM(getgamaL(L2s[0], L2s[1], L2s[2])));
+  int alphaL2 = round(L02[1] + myFunctionPWM(getalphaL(L2s[0], L2s[1], L2s[2])));
+  int betaL2  = round(L02[2] + myFunctionPWM(getbetaL(L2s[0], L2s[1], L2s[2])));
+  //================================================== L3 (ready) ==================================================
+  int gamaL3  = round(L03[0] + myFunctionPWM(getgamaL(L3s[0], L3s[1], L3s[2])));
+  int alphaL3 = round(L03[1] + myFunctionPWM(getalphaL(L3s[0], L3s[1], L3s[2])));
+  int betaL3  = round(L03[2] + myFunctionPWM(getbetaL(L3s[0], L3s[1], L3s[2])));
+  //================================================== R1 (ready) ==================================================
+  int gamaR1  = round(R01[0] + myFunctionPWM(getgamaR(R1s[0], R1s[1], R1s[2])));
+  int alphaR1 = round(R01[1] + myFunctionPWM(getalphaR(R1s[0], R1s[1], R1s[2])));
+  int betaR1  = round(R01[2] + myFunctionPWM(getbetaR(R1s[0], R1s[1], R1s[2])));
+  //================================================== R2 (ready) ==================================================
+  int gamaR2  = round(R02[0] + myFunctionPWM(getgamaR(R2s[0], R2s[1], R2s[2])));
+  int alphaR2 = round(R02[1] + myFunctionPWM(getalphaR(R2s[0], R2s[1], R2s[2])));
+  int betaR2  = round(R02[2] + myFunctionPWM(getbetaR(R2s[0], R2s[1], R2s[2])));
+  //================================================== R3 (ready) ==================================================
+  int gamaR3  = round(R03[0] + myFunctionPWM(getgamaR(R3s[0], R3s[1], R3s[2])));
+  int alphaR3 = round(R03[1] + myFunctionPWM(getalphaR(R3s[0], R3s[1], R3s[2])));
+  int betaR3  = round(R03[2] + myFunctionPWM(getbetaR(R3s[0], R3s[1], R3s[2])));
+
+  String hasil = "#23 P" + String(gamaL1) + "#22 P" + String(alphaL1) + "#21 P" + String(betaL1)
+    + "#19 P" + String(gamaL2) + " #18 P" + String(alphaL2) + "#17 P" + String(betaL2)
+    + "#15 P" + String(gamaL3) + " #14 P" + String(alphaL3) + " #13 P" + String(betaL3)
+    + " #0 P" + String(gamaR1) + " #1 P" + String(alphaR1) + " #2 P" + String(betaR1)
+    + " #4 P" + String(gamaR2) + " #5 P" + String(alphaR2) + " #6 P" + String(betaR2)
+    + " #8 P" + String(gamaR3) + " #9 P" + String(alphaR3) + " #10 P" + String(betaR3)
+    + " T" + String(walkspeed) + " \r";
+
+  return hasil;
+}
+ 
+void sapu_step() {
+  switch (state_nextStep) {
+    case 0: Serial2.print(String(sapu_ssc(0))); state_nextStep = 1; break;
+    case 1: Serial2.print(String(sapu_ssc(1))); state_nextStep = 2; break;
+    case 2: Serial2.print(String(sapu_ssc(2))); state_nextStep = 3; break;
+    case 3: Serial2.print(String(sapu_ssc(3))); state_nextStep = 0; break;
+  }
+}
+// ---------------- WAVE HELLO (dengan weight-shift biar gak jatuh) ----------
+String wave_hello_ssc(int x) {
+  float naik  = -2.5;  // tinggi angkat R1, diturunin dari -4 (lebih aman)
+  float turun = 0;
+  float swing = 2;     // lebar ayunan, dikurangin dari 3
+ 
+  // --- INI YANG PALING PENTING BUAT DI-TUNE ---
+  // shift = seberapa jauh 5 kaki lain geser buat mindahin titik berat
+  // menjauhi R1 sebelum R1 diangkat.
+  // KALAU ROBOT MASIH/MALAH JATUH KE ARAH SEBALIKNYA, GANTI TANDANYA
+  // dari -1.5 jadi +1.5 (atau sebaliknya).
+  float shift = -1.5;
+ 
+  // shift aktif dari frame 0 sampai 6 (selama R1 di udara),
+  // balik ke 0 di frame 7 (pas R1 udah nempel tanah lagi)
+  auto s = [&](int i) -> float { return (i < 7) ? shift : 0; };
+ 
+  float L1s[8][3], L2s[8][3], L3s[8][3], R2s[8][3], R3s[8][3];
+  for (int i = 0; i < 8; i++) {
+    L1s[i][0] = 0 + C0L[0][0]; L1s[i][1] = s(i) + C0L[0][1]; L1s[i][2] = 0 + C0L[0][2];
+    L2s[i][0] = 0 + C0L[1][0]; L2s[i][1] = s(i) + C0L[1][1]; L2s[i][2] = 0 + C0L[1][2];
+    L3s[i][0] = 0 + C0L[2][0]; L3s[i][1] = s(i) + C0L[2][1]; L3s[i][2] = 0 + C0L[2][2];
+    R2s[i][0] = 0 + C0R[1][0]; R2s[i][1] = s(i) + C0R[1][1]; R2s[i][2] = 0 + C0R[1][2];
+    R3s[i][0] = 0 + C0R[2][0]; R3s[i][1] = s(i) + C0R[2][1]; R3s[i][2] = 0 + C0R[2][2];
+  }
+ 
+  float R1[8][3] = {
+    { 0 + C0R[2][0], 0      + C0R[2][1], turun + C0R[2][2] },  // 0: badan mulai geser, R1 msh nempel
+    { 0 + C0R[2][0], 0      + C0R[2][1], naik  + C0R[2][2] },  // 1: berat udah pindah, R1 diangkat
+    { 0 + C0R[2][0], swing  + C0R[2][1], naik  + C0R[2][2] },  // 2: ayun kiri
+    { 0 + C0R[2][0], -swing + C0R[2][1], naik  + C0R[2][2] },  // 3: ayun kanan
+    { 0 + C0R[2][0], swing  + C0R[2][1], naik  + C0R[2][2] },  // 4: ayun kiri
+    { 0 + C0R[2][0], -swing + C0R[2][1], naik  + C0R[2][2] },  // 5: ayun kanan
+    { 0 + C0R[2][0], 0      + C0R[2][1], naik  + C0R[2][2] },  // 6: balik tengah, msh di udara
+    { 0 + C0R[2][0], 0      + C0R[2][1], turun + C0R[2][2] },  // 7: R1 turun, badan balik tengah
+  };
+ 
+  int gamaL1  = round(L01[0] + myFunctionPWM(getgamaL(L1s[x][0], L1s[x][1], L1s[x][2])));
+  int alphaL1 = round(L01[1] + myFunctionPWM(getalphaL(L1s[x][0], L1s[x][1], L1s[x][2])));
+  int betaL1  = round(L01[2] + myFunctionPWM(getbetaL(L1s[x][0], L1s[x][1], L1s[x][2])));
+ 
+  int gamaL2  = round(L02[0] + myFunctionPWM(getgamaL(L2s[x][0], L2s[x][1], L2s[x][2])));
+  int alphaL2 = round(L02[1] + myFunctionPWM(getalphaL(L2s[x][0], L2s[x][1], L2s[x][2])));
+  int betaL2  = round(L02[2] + myFunctionPWM(getbetaL(L2s[x][0], L2s[x][1], L2s[x][2])));
+ 
+  int gamaL3  = round(L03[0] + myFunctionPWM(getgamaL(L3s[x][0], L3s[x][1], L3s[x][2])));
+  int alphaL3 = round(L03[1] + myFunctionPWM(getalphaL(L3s[x][0], L3s[x][1], L3s[x][2])));
+  int betaL3  = round(L03[2] + myFunctionPWM(getbetaL(L3s[x][0], L3s[x][1], L3s[x][2])));
+ 
+  int gamaR1  = round(R01[0] + myFunctionPWM(getgamaR(R1[x][0], R1[x][1], R1[x][2])));
+  int alphaR1 = round(R01[1] + myFunctionPWM(getalphaR(R1[x][0], R1[x][1], R1[x][2])));
+  int betaR1  = round(R01[2] + myFunctionPWM(getbetaR(R1[x][0], R1[x][1], R1[x][2])));
+ 
+  int gamaR2  = round(R02[0] + myFunctionPWM(getgamaR(R2s[x][0], R2s[x][1], R2s[x][2])));
+  int alphaR2 = round(R02[1] + myFunctionPWM(getalphaR(R2s[x][0], R2s[x][1], R2s[x][2])));
+  int betaR2  = round(R02[2] + myFunctionPWM(getbetaR(R2s[x][0], R2s[x][1], R2s[x][2])));
+ 
+  int gamaR3  = round(R03[0] + myFunctionPWM(getgamaR(R3s[x][0], R3s[x][1], R3s[x][2])));
+  int alphaR3 = round(R03[1] + myFunctionPWM(getalphaR(R3s[x][0], R3s[x][1], R3s[x][2])));
+  int betaR3  = round(R03[2] + myFunctionPWM(getbetaR(R3s[x][0], R3s[x][1], R3s[x][2])));
+ 
+  String hasil = "#23 P" + String(gamaL1) + "#22 P" + String(alphaL1) + "#21 P" + String(betaL1)
+    + "#19 P" + String(gamaL2) + " #18 P" + String(alphaL2) + "#17 P" + String(betaL2)
+    + "#15 P" + String(gamaL3) + " #14 P" + String(alphaL3) + " #13 P" + String(betaL3)
+    + " #0 P" + String(gamaR1) + " #1 P" + String(alphaR1) + " #2 P" + String(betaR1)
+    + " #4 P" + String(gamaR2) + " #5 P" + String(alphaR2) + " #6 P" + String(betaR2)
+    + " #8 P" + String(gamaR3) + " #9 P" + String(alphaR3) + " #10 P" + String(betaR3)
+    + " T" + String(walkspeed) + " \r";
+ 
+  return hasil;
+}
+ 
+void wave_hello_step() {
+  switch (state_nextStep6) {
+    case 0: Serial2.print(String(wave_hello_ssc(0))); state_nextStep6 = 1; break;
+    case 1: Serial2.print(String(wave_hello_ssc(1))); state_nextStep6 = 2; break;
+    case 2: Serial2.print(String(wave_hello_ssc(2))); state_nextStep6 = 3; break;
+    case 3: Serial2.print(String(wave_hello_ssc(3))); state_nextStep6 = 4; break;
+    case 4: Serial2.print(String(wave_hello_ssc(4))); state_nextStep6 = 5; break;
+    case 5: Serial2.print(String(wave_hello_ssc(5))); state_nextStep6 = 6; break;
+    case 6: Serial2.print(String(wave_hello_ssc(6))); state_nextStep6 = 7; break;
+    case 7: Serial2.print(String(wave_hello_ssc(7))); state_nextStep6 = 0; break;
+  }
+}
+ 
+// ---------------- DANCE (8 frame gradual biar gak kaku) --------------------
+String dance_ssc(int x) {
+  float swingMax = 1.5;  // goyang badan kiri-kanan, dikurangin dari 2
+  float ampZ     = 1.5;  // naik-turun tripod, dikurangin dari 2
+ 
+  // pola halus (triangle wave) 8 frame, gantiin lompatan ekstrem 4-frame yg lama
+  float pat[8] = { 0, 0.5, 1, 0.5, 0, -0.5, -1, -0.5 };
+ 
+  float y  = pat[x] * swingMax;
+  float zA = pat[x] * ampZ;    // tripod A: L1, L2, L3
+  float zB = -pat[x] * ampZ;   // tripod B: R1, R2, R3 (kebalikan fase)
+ 
+  float L1[3] = { 0 + C0L[0][0], y + C0L[0][1], zA + C0L[0][2] };
+  float L2[3] = { 0 + C0L[1][0], y + C0L[1][1], zA + C0L[1][2] };
+  float L3[3] = { 0 + C0L[2][0], y + C0L[2][1], zA + C0L[2][2] };
+  float R1[3] = { 0 + C0R[2][0], y + C0R[2][1], zB + C0R[2][2] };
+  float R2[3] = { 0 + C0R[1][0], y + C0R[1][1], zB + C0R[1][2] };
+  float R3[3] = { 0 + C0R[2][0], y + C0R[2][1], zB + C0R[2][2] };
+ 
+  int gamaL1  = round(L01[0] + myFunctionPWM(getgamaL(L1[0], L1[1], L1[2])));
+  int alphaL1 = round(L01[1] + myFunctionPWM(getalphaL(L1[0], L1[1], L1[2])));
+  int betaL1  = round(L01[2] + myFunctionPWM(getbetaL(L1[0], L1[1], L1[2])));
+ 
+  int gamaL2  = round(L02[0] + myFunctionPWM(getgamaL(L2[0], L2[1], L2[2])));
+  int alphaL2 = round(L02[1] + myFunctionPWM(getalphaL(L2[0], L2[1], L2[2])));
+  int betaL2  = round(L02[2] + myFunctionPWM(getbetaL(L2[0], L2[1], L2[2])));
+ 
+  int gamaL3  = round(L03[0] + myFunctionPWM(getgamaL(L3[0], L3[1], L3[2])));
+  int alphaL3 = round(L03[1] + myFunctionPWM(getalphaL(L3[0], L3[1], L3[2])));
+  int betaL3  = round(L03[2] + myFunctionPWM(getbetaL(L3[0], L3[1], L3[2])));
+ 
+  int gamaR1  = round(R01[0] + myFunctionPWM(getgamaR(R1[0], R1[1], R1[2])));
+  int alphaR1 = round(R01[1] + myFunctionPWM(getalphaR(R1[0], R1[1], R1[2])));
+  int betaR1  = round(R01[2] + myFunctionPWM(getbetaR(R1[0], R1[1], R1[2])));
+ 
+  int gamaR2  = round(R02[0] + myFunctionPWM(getgamaR(R2[0], R2[1], R2[2])));
+  int alphaR2 = round(R02[1] + myFunctionPWM(getalphaR(R2[0], R2[1], R2[2])));
+  int betaR2  = round(R02[2] + myFunctionPWM(getbetaR(R2[0], R2[1], R2[2])));
+ 
+  int gamaR3  = round(R03[0] + myFunctionPWM(getgamaR(R3[0], R3[1], R3[2])));
+  int alphaR3 = round(R03[1] + myFunctionPWM(getalphaR(R3[0], R3[1], R3[2])));
+  int betaR3  = round(R03[2] + myFunctionPWM(getbetaR(R3[0], R3[1], R3[2])));
+ 
+  String hasil = "#23 P" + String(gamaL1) + "#22 P" + String(alphaL1) + "#21 P" + String(betaL1)
+    + "#19 P" + String(gamaL2) + " #18 P" + String(alphaL2) + "#17 P" + String(betaL2)
+    + "#15 P" + String(gamaL3) + " #14 P" + String(alphaL3) + " #13 P" + String(betaL3)
+    + " #0 P" + String(gamaR1) + " #1 P" + String(alphaR1) + " #2 P" + String(betaR1)
+    + " #4 P" + String(gamaR2) + " #5 P" + String(alphaR2) + " #6 P" + String(betaR2)
+    + " #8 P" + String(gamaR3) + " #9 P" + String(alphaR3) + " #10 P" + String(betaR3)
+    + " T" + String(walkspeed) + " \r";
+ 
+  return hasil;
+}
+ 
+void dance_step() {
+  switch (state_nextStep) {
+    case 0: Serial2.print(String(dance_ssc(0))); state_nextStep = 1; break;
+    case 1: Serial2.print(String(dance_ssc(1))); state_nextStep = 2; break;
+    case 2: Serial2.print(String(dance_ssc(2))); state_nextStep = 3; break;
+    case 3: Serial2.print(String(dance_ssc(3))); state_nextStep = 4; break;
+    case 4: Serial2.print(String(dance_ssc(4))); state_nextStep = 5; break;
+    case 5: Serial2.print(String(dance_ssc(5))); state_nextStep = 6; break;
+    case 6: Serial2.print(String(dance_ssc(6))); state_nextStep = 7; break;
+    case 7: Serial2.print(String(dance_ssc(7))); state_nextStep = 0; break;
+  }
+}
 //=========END OF STEP MOVE==============
 
 //=========Start of Function Move=====
@@ -2580,6 +2795,15 @@ void movetype(type move) {
       case epoint_rotate_left:
         Serial2.print(String(point_rotate_left_state()));
         break;  
+      case ewave_hello:
+        wave_hello_step();
+        break;
+      case edance:
+        dance_step();
+        break;
+      case esapu:
+        sapu_step();
+        break;
     }
   }
 }
@@ -3213,7 +3437,22 @@ void point_rotate_left() {
   rotate_coor();
   movetype(epoint_rotate_left);
 }
-
+void wave_hello() {
+  walkspeed = 250;
+  movetype(ewave_hello);
+}
+ 
+void dance() {
+  walkspeed = 250;
+  movetype(edance);
+}
+// ============================================================================
+// SECTION B — taruh SETELAH movetype(), bareng wave_hello()/dance()
+// ============================================================================
+void sapu() {
+  walkspeed = 300;
+  movetype(esapu);
+}
 
 //========End of Function Move======
 }
