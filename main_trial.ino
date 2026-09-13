@@ -153,7 +153,7 @@ unsigned long int camtime = 0;
 int cposhomeR = 157;
 //////////////| HOME |////
 
-int cposR[] = { 0, 0, 152, 213, 139, 142, 91, 15, 94, 88 };
+int cposR[] = { 0, 0, 160, 213, 139, 142, 91, 15, 94, 88 };
 ////////////////////| R2 | R3 | R4 | R5 | R6 | R7 | R8 | R9 |///////Ruangan
 
 int cposhumanR[] = { 0 ,1, 82, 352, 349, 115 };
@@ -281,7 +281,7 @@ bool left = false;
 
 
 // ==== TEST BYPASS CONFIG ====
-int TEST_START_ROOM = 2;   // ganti sesuai ruangan yang mau ditest. 0 = normal run dari home
+int TEST_START_ROOM = 0;   // ganti sesuai ruangan yang mau ditest. 0 = normal run dari home
 
 void applyTestBypass(int room) {
   // Home
