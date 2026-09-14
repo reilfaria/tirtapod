@@ -1610,24 +1610,52 @@ void loop() {
       //Ruangan 7
       if (overallR6 == true && overallR7 == false) {
 
+        // Tambahkan variabel ini di tingkat global (di luar loop/fungsi) atau gunakan static:
+        // static unsigned long exitTimer = 0;
+        // static bool timingStarted = false;
+
         // tahap 1: naik tangga - shift6_right_fast sambil jaga kompas & jarak minimum
         if (kiri == false && stuck == false && tembok7 == false) {
-          TOFDepan = TOF::getdepan();
-          TOFKanan = TOF::getkanan();
-          legs::walkspeed = 150;
+            TOFDepan = TOF::getdepan();
+            TOFKanan = TOF::getkanan();
+            legs::walkspeed = 150;
 
-          int comVal = radius(cposR[7], R);
-          if (comVal == 1) {
-            legs::rotate6_right_1cm();
-          } else if (comVal == -1) {
-            legs::rotate6_left_1cm();
-          } else if (TOFDepan < 100) {
-            legs::backward6();
-          } else if (TOFDepan <= 320 && TOFKanan <= 200) {
-            legs::shift6_right_fast();
-          } else {
-            kiri = true;
-          }
+            int comVal = radius(cposR[7], R);
+            if (comVal == 1) {
+                legs::rotate6_right_1cm();
+                timingStarted = false; // Reset timer jika sedang koreksi kompas
+            } else if (comVal == -1) {
+                legs::rotate6_left_1cm();
+                timingStarted = false; // Reset timer jika sedang koreksi kompas
+            } else if (TOFDepan < 100) {
+                legs::backward6();
+                timingStarted = false;
+            } else {
+                // Cek apakah kondisi "sudah di ujung/keluar tangga" terpenuhi
+                if (TOFDepan > 320 && TOFKanan < 200) {
+                    
+                    // Jika timer belum mulai, catat waktu saat ini
+                    if (!timingStarted) {
+                        exitTimer = millis();
+                        timingStarted = true;
+                    }
+
+                    // Selama belum 2 detik (2000 ms), tetap jalan shift right
+                    if (millis() - exitTimer < 2000) {
+                        legs::shift6_right_fast();
+                    } else {
+                        // Sudah 2 detik berlalu, tandai selesai tangga
+                        timingStarted = false; // Reset status timer
+                        kiri = true;
+                    }
+
+                } else {
+                    // Masih di dalam tangga normal, tetap shift right & reset timer
+                    timingStarted = false;
+                    legs::shift6_right_fast();
+                }
+            }
+        }
 
 
           // tahap 2: sudah kekonfirmasi 2 detik, positioning ke arah R8
