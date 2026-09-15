@@ -157,7 +157,7 @@ int cposhomeR = 157;
 int cposR[] = { 0, 0, 160, 213, 139, 142, 91, 15, 86, 88 };
 ////////////////////| R2 | R3 | R4 | R5 | R6 | R7 | R8 | R9 |///////Ruangan
 
-int cposhumanR[] = { 0, 1, 82, 137, 349, 105 };
+int cposhumanR[] = { 0, 1, 82, 135, 349, 105 };
 //////////////////////| H1 | H2 | H3 | H4 | H5 |///////Human
 
 int cpossafeR[] = { 0, 119, 222, 133, 78, 102 };
@@ -289,7 +289,7 @@ bool left = false;
 
 
 // ==== TEST BYPASS CONFIG ====
-int TEST_START_ROOM = 8;  // ganti sesuai ruangan yang mau ditest. 0 = normal run dari home
+int TEST_START_ROOM = 6;  // ganti sesuai ruangan yang mau ditest. 0 = normal run dari home
 
 void applyTestBypass(int room) {
   // Home
@@ -546,7 +546,7 @@ void loop() {
     //    overallR8 = true;
 
     //Kondisi Kanan =======
-    if (isRight == HIGH) {
+    if (isRight == LOW) {
       if (homestate == false && overallhome == false) {
         legs::walkspeed = 150;
         int comVal = radius(cposhomeR, F);
@@ -1295,75 +1295,42 @@ void loop() {
 
         // Ruangan 6
         if (overallR5 == true && overallR6 == false) {
-          //           if (wallfollowingR6 == false && positioningR6 == false && tembok6kanan == false) {
-          //             TOFKiri = TOF::getkiri();
-          //             TOFDepan = TOF::getdepan();
-          //             Serial.println("cek tembok 6 depan");
-          // //           led.clearBuffer();
-          // //            oled.setFont(u8g2_font_fub11_tr);
-          // //            oled.drawStr(34, 18, "CHECK");
-          // //            oled.drawStr(24, 38, "TEMBOK 6");
-          // //            oled.drawStr(34, 58, "DEPAN");
-          // //            oled.sendBuffer();
-          //             legs::walkspeed = 150;
-          //             int comVal = radius(cposR[6],F);
-          //             if (comVal == -1){
-          //               legs::rotate_left_fast();
-          //             } else if (comVal == 1){
-          //               legs::rotate_right_fast();
-          //             } else if (TOFKiri > 190){
-          //               legs::shift6_left_high();
-          //             } else {
-          //               legs::forward6_high();
-          //             }
-
-          //             if (TOFDepan < 140) {
-          //               if (gettimeR6 == 0) {
-          //                 gettimeR6 = millis();
-          //               }
-          //               // Memeriksa apakah telah 2 detik
-          //               if (millis() - gettimeR6 >= 2000) {
-          //                 wallfollowingR6 = true;
-          //               }
-          //             } else {
-          //               gettimeR6 = 0;
-          //             }
-          //           }
+          
           if (wallfollowingR6 == false && positioningR6 == false && tembok6kanan == false) {
-            TOFKiri = TOF::getkiri();
+            TOFKanan = TOF::getkanan();
             TOFDepan = TOF::getdepan();
             Serial.println("cek tembok 6 depan");
             legs::walkspeed = 150;
 
-            // tahap 1: maju normal sampai TOFDepan 830, sambil jaga kompas cposR[6] & TOFKiri
+            // tahap 1: shift kiri sampai TOFKiri >= 235
             if (doneHuman6 == false && rotateH6 == false && camerastate[3] == false && human[3] == false && mundur6humanR6 == false && kompasBalik6 == false) {
-              int comVal = radius(cposR[6], F);
-              if (comVal == -1) {
-                legs::rotate_left_fast();
-              } else if (comVal == 1) {
-                legs::rotate_right_fast();
-              } else if (TOFDepan >= 830) {
+              if (TOFKanan > 300) {
                 rotateH6 = true;
-              } else if (TOFKiri > 190) {
-                legs::shift6_left_high();
               } else {
-                legs::forward6_high();
+                legs::walkspeed = 150;
+                legs::shift6_left_fast();
               }
             }
 
-            // tahap 2: prepare camera - rotate ke cposhumanR[3], sama kayak pola ruangan 4
+            // tahap 2: benerin kompas ke cposhumanR[3], baru backward 2 detik, baru camerastate true
             if (doneHuman6 == false && rotateH6 == true && camerastate[3] == false && human[3] == false && mundur6humanR6 == false && kompasBalik6 == false) {
               Serial.println("prepare camera 6");
-              int comVal = radius(cposhumanR[3], L);
-              if (comVal == 0) {
+              int comVal = radius(cposhumanR[3], F);
+              if (comVal == 1) {
+                legs::rotate6_right();
+              } else if (comVal == -1) {
+                legs::rotate6_left();
+              } else {
+                legs::walkspeed = 150;
+                unsigned long t = millis();
+                while (millis() - t <= 2000) {
+                  legs::backward6();
+                }
                 camerastate[3] = true;
                 oled.clearBuffer();
                 oledPrint("Get", 30);
                 oledPrint("Human", 50);
                 oled.sendBuffer();
-                delay(1000);
-              } else {
-                legs::rotate6_right();
               }
             }
             if (doneHuman6 == false && rotateH6 == true && camerastate[3] == true && human[3] == false && mundur6humanR6 == false && kompasBalik6 == false) {
@@ -1374,7 +1341,7 @@ void loop() {
               //            oled.drawStr(32, 51, "HUMAN");
               //            oled.sendBuffer();
               //legs::walkspeed = 200;
-              gethuman_low(3, 137);
+              gethuman6(3, 135);
 
               // gettimeR4 = millis();
             }
@@ -3169,6 +3136,65 @@ void gethuman_low(int nhuman, int targetHeading) {
           Serial.println("shift left");
         } else if (x > center + camoffset) {
           legs::shift_right_low_1cm();
+          Serial.println("shift right");
+        }
+      }
+    }
+    if (tengah == true) {
+      if (depan < 245) {
+        posisi[nhuman] = true;
+      } else {
+        legs::walkspeed = 200;
+        legs::forward_low();
+      }
+    }
+  }
+  if (posisi[nhuman] == true) {
+    delay(250);
+    legs::capitbuka();
+    legs::point_backward_state();
+    delay(500);
+    legs::capitturun2(1);
+    delay(200);
+    legs::point_forward_state();
+    delay(250);
+    legs::capitjepit();
+    legs::point_backward_state();
+    delay(200);
+    legs::capitnaik(2);
+    human[nhuman] = true;
+    tengah = false;
+  }
+}
+
+void gethuman6(int nhuman, int targetHeading) {
+  x = cam::camx;
+  int depan = TOF::getdepan();
+
+  if (posisi[nhuman] == false) {
+    if (tengah == false) {
+      legs::walkspeed = 300;
+
+      int headingCheck = radius(targetHeading);  // pakai default type=F, coffset=15
+
+      if (headingCheck != 0) {
+        // heading belum pas, rotate dulu sebelum cek kamera
+        if (headingCheck == 1) {
+          legs::rotate6_right();
+          Serial.println("rotate right (heading)");
+        } else {
+          legs::rotate6_left();
+          Serial.println("rotate left (heading)");
+        }
+      } else {
+        // heading sudah pas, baru cek centering kamera
+        if (x <= center + camoffset && x >= center - camoffset) {
+          tengah = true;
+        } else if (x < center - camoffset) {
+          legs::shift6_left_high();
+          Serial.println("shift left");
+        } else if (x > center + camoffset) {
+          legs::shift6_right_high();
           Serial.println("shift right");
         }
       }
