@@ -118,9 +118,13 @@ char incomingByte;
 int x;
 int xDummy;
 int bataskanan = 450;
-int bataskiri = 325;
-int center = 280;
+int bataskiri = 310;
+int center = 322;
 int camoffset = 8;
+int camoffsetpuing = 10;
+int centerx2 = 292;
+int centery2 = 282;
+bool tengah2 = false;
 unsigned long int camtime = 0;
 
 //// Compass Parameter
@@ -151,7 +155,7 @@ unsigned long int camtime = 0;
 //////////////////////| S1 | S2 | S3 | S4 | S5 |///////SafeZone
 
 // Posisi robot untuk arena latihan kanan
-int cposhomeR = 157;
+int cposhomeR = 138;
 //////////////| HOME |////
 
 int cposR[] = { 0, 0, 160, 213, 139, 142, 91, 15, 86, 88 };
@@ -257,6 +261,7 @@ bool ambilhuman6 = false;
 bool mundur6humanR6 = false;
 bool kompasBalik6 = false;
 bool doneHuman6 = false;
+bool capitturunstate = false;
 unsigned long int gettimeR6 = 0;
 
 //Logic for R7
@@ -580,10 +585,10 @@ void loop() {
         if (overallhome == true && overallR1 == false) {
           if (human[1] == false && camerastate[1] == false) {
             TOFKiri = TOF::getkiri();
-            if (TOFKiri > 480) {
+            if (TOFKiri > 550) {
               camerastate[1] = true;
               while (millis() - gettimeR1N <= 2000) {
-                legs::walkspeed = 150;
+                legs::walkspeed = 100;
                 legs::backward_low();
                 oled.clearBuffer();
                 oledPrint("Get", 30);
@@ -593,7 +598,7 @@ void loop() {
               delay(500);
 
             } else {
-              legs::walkspeed = 150;
+              legs::walkspeed = 100;
               legs::shift_right_low();
               gettimeR1N = millis();
             }
@@ -606,7 +611,7 @@ void loop() {
             //            oled.drawStr(38, 27, "GET");
             //            oled.drawStr(32, 51, "HUMAN");
             //            oled.sendBuffer();
-            gethuman_low(1, 152);
+            gethuman_low(1, 140);
             capitnaik = true;
             gettimeR1 = millis();
           }
@@ -1323,7 +1328,7 @@ void loop() {
               } else {
                 legs::walkspeed = 150;
                 unsigned long t = millis();
-                while (millis() - t <= 2000) {
+                while (millis() - t <= 1000) {
                   legs::backward6();
                 }
                 camerastate[3] = true;
@@ -1341,7 +1346,7 @@ void loop() {
               //            oled.drawStr(32, 51, "HUMAN");
               //            oled.sendBuffer();
               //legs::walkspeed = 200;
-              gethuman6(3, 135);
+              gethuman6puing(3, 135);
 
               // gettimeR4 = millis();
             }
@@ -3167,18 +3172,17 @@ void gethuman_low(int nhuman, int targetHeading) {
   }
 }
 
-void gethuman6(int nhuman, int targetHeading) {
+void gethuman6puing(int nhuman, int targetHeading) {
   x = cam::camx;
-  int depan = TOF::getdepan();
-
+  int skanan = TOF::getserongkanan();
+  int TOFCapit = TOF::getcapit();
   if (posisi[nhuman] == false) {
+
+    // tahap 1: centering pakai kamera + kompas, sama seperti template gethuman6
     if (tengah == false) {
       legs::walkspeed = 300;
-
-      int headingCheck = radius(targetHeading);  // pakai default type=F, coffset=15
-
+      int headingCheck = radius(targetHeading);
       if (headingCheck != 0) {
-        // heading belum pas, rotate dulu sebelum cek kamera
         if (headingCheck == 1) {
           legs::rotate6_right();
           Serial.println("rotate right (heading)");
@@ -3187,7 +3191,6 @@ void gethuman6(int nhuman, int targetHeading) {
           Serial.println("rotate left (heading)");
         }
       } else {
-        // heading sudah pas, baru cek centering kamera
         if (x <= center + camoffset && x >= center - camoffset) {
           tengah = true;
         } else if (x < center - camoffset) {
@@ -3199,30 +3202,76 @@ void gethuman6(int nhuman, int targetHeading) {
         }
       }
     }
-    if (tengah == true) {
-      if (depan < 245) {
-        posisi[nhuman] = true;
+
+    // tahap 2: sudah center, capit turun + buka sedikit (cuma sekali)
+    if (tengah == true && capitturunstate == false) {
+      Serial.println("capit turun & buka sedikit");
+      legs::capitturun(4);
+      legs::capitbukasedikit();
+      capitturunstate = true;
+    }
+
+    // tahap 2.5: centering ulang pakai X dan Y, soalnya posisi suka geser gara-gara puing
+    if (tengah == true && capitturunstate == true && tengah2 == false) {
+      tengah2 = true;
+      x = cam::camx;
+      int y = cam::camy;
+      legs::walkspeed = 400;
+
+      // if (x <= centerx2 + camoffsetpuing && x >= centerx2 - camoffsetpuing) {
+      //   if (y <= centery2 + camoffsetpuing && y >= centery2 - camoffsetpuing) {
+      //     tengah2 = true;
+      //   } else if (y < centery2 - camoffsetpuing) {
+      //     legs::forward6_high();
+      //     Serial.println("koreksi maju (Y)");
+      //   } else {
+      //     legs::backward6();
+      //     Serial.println("koreksi mundur (Y)");
+      //   }
+      // } else if (x < centerx2 - camoffsetpuing) {
+      //   legs::shift6_left_high();
+      //   Serial.println("koreksi kiri (X)");
+      // } else {
+      //   legs::shift6_right_high();
+      //   Serial.println("koreksi kanan (X)");
+      // }
+    }
+
+    // tahap 3: sudah center dua kali, maju sambil jaga arah pakai kompas
+    if (tengah == true && capitturunstate == true && tengah2 == true) {
+      int headingCheck = radius(targetHeading);
+      if (headingCheck == 1) {
+        legs::rotate6_right_1cm();
+        Serial.println("koreksi kanan (approach)");
+      } else if (headingCheck == -1) {
+        legs::rotate6_left_1cm();
+        Serial.println("koreksi kiri (approach)");
       } else {
-        legs::walkspeed = 200;
-        legs::forward_low();
+        if (TOFCapit <= 80) {
+          posisi[nhuman] = true;
+        } else {
+          legs::walkspeed = 400;
+          legs::forward6();
+        }
       }
     }
   }
+
+  // tahap 4: sudah pas di jarak 85, buka capit penuh, ambil korban
   if (posisi[nhuman] == true) {
-    delay(250);
     legs::capitbuka();
-    legs::point_backward_state();
-    delay(500);
-    legs::capitturun2(1);
-    delay(200);
+    delay(250);
     legs::point_forward_state();
     delay(250);
     legs::capitjepit();
+    delay(250);
     legs::point_backward_state();
     delay(200);
     legs::capitnaik(2);
     human[nhuman] = true;
     tengah = false;
+    capitturunstate = false;
+    tengah2 = false;
   }
 }
 
