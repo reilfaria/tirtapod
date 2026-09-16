@@ -151,16 +151,16 @@ unsigned long int camtime = 0;
 //////////////////////| S1 | S2 | S3 | S4 | S5 |///////SafeZone
 
 // Posisi robot untuk arena latihan kanan
-int cposhomeR = 157;
+int cposhomeR = 138;
 //////////////| HOME |////
 
-int cposR[] = { 0, 0, 160, 213, 139, 142, 91, 15, 86, 88 };
+int cposR[] = { 0, 0, 155, 230, 139, 142, 91, 15, 86, 88 };
 ////////////////////| R2 | R3 | R4 | R5 | R6 | R7 | R8 | R9 |///////Ruangan
 
-int cposhumanR[] = { 0, 1, 82, 135, 349, 105 };
-//////////////////////| H1 | H2 | H3 | H4 | H5 |///////Human
+int cposhumanR[] = { 0, 1, 70, 135, 349, 105 };
+/////////////////////| H1 | H2 | H3 | H4 | H5 |///////Human
 
-int cpossafeR[] = { 0, 119, 222, 133, 78, 102 };
+int cpossafeR[] = { 0, 3, 222, 133, 78, 102 };
 /////////////////////| S1 | S2 | S3 | S4 | S5 |///////SafeZone
 
 
@@ -289,7 +289,7 @@ bool left = false;
 
 
 // ==== TEST BYPASS CONFIG ====
-int TEST_START_ROOM = 6;  // ganti sesuai ruangan yang mau ditest. 0 = normal run dari home
+int TEST_START_ROOM = 2;  // ganti sesuai ruangan yang mau ditest. 0 = normal run dari home
 
 void applyTestBypass(int room) {
   // Home
@@ -546,7 +546,7 @@ void loop() {
     //    overallR8 = true;
 
     //Kondisi Kanan =======
-    if (isRight == LOW) {
+    if (isRight == HIGH) {
       if (homestate == false && overallhome == false) {
         legs::walkspeed = 150;
         int comVal = radius(cposhomeR, F);
@@ -580,7 +580,7 @@ void loop() {
         if (overallhome == true && overallR1 == false) {
           if (human[1] == false && camerastate[1] == false) {
             TOFKiri = TOF::getkiri();
-            if (TOFKiri > 480) {
+            if (TOFKiri > 460) {
               camerastate[1] = true;
               while (millis() - gettimeR1N <= 2000) {
                 legs::walkspeed = 150;
@@ -687,7 +687,10 @@ void loop() {
               tembok2kiri = true;
             } else {
               int comVal = radius(cposR[2], F);
-              Serial.println(compass::heading());
+              if (TOFDepan < 100) {
+                legs::backward();
+              }
+              // Serial.println(compass::heading());
               if (comVal == 0) {
                 legs::shift6_right_high_fast();
               } else if (comVal == 1) {
@@ -748,7 +751,7 @@ void loop() {
               // Memeriksa apakah telah 2 detik
               if (millis() - gettimeR2 >= 1500) {
                 overallR2 = true;
-                //              kompas3 = true;
+                // kompas3 = true;
               }
             } else {
               // Mengatur ulang waktu mulai jika jarak lebih besar dari 20 cm
@@ -953,9 +956,9 @@ void loop() {
             //            oled.drawStr(34, 58, "KANAN");
             //            oled.sendBuffer();
             legs::walkspeed = 150;
-            if (TOFKanan < 320) {
+            if (TOFKanan < 120) {
               legs::shift6_left();
-            } else if (TOFKanan > 350) {
+            } else if (TOFKanan > 150) {
               legs::shift6_right();
             } else {
               tembok4kanan = true;
