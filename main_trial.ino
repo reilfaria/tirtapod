@@ -129,43 +129,18 @@ unsigned long int camtime = 0;
 
 //// Compass Parameter
 //// untuk arena kanan
-//int cposhomeR = 28;
-////////////////| HOME |////
-//
-//int cposR[] = { 0, 0, 54, 126, 51, 63, 314, 311, 289, 276 };
-//////////////////////| R2 | R3 | R4 | R5 | R6 | R7 | R8 | R9 |///////Ruangan
-//
-//int cposhumanR[] = { 0 ,330, 295, 352, 349, 323 };
-////////////////////////| H1 | H2 | H3 | H4 | H5 |///////Human
-//
-//int cpossafeR[] = { 0, 147, 95, 133, 80, 102 };
-////////////////////////| S1 | S2 | S3 | S4 | S5 |///////SafeZone
-
-//// untuk arena latihan kanan
-//int cposhomeR = 194;
-////////////////| HOME |////
-//
-//int cposR[] = { 0, 0, 215, 304, 216, 212, 140, 105, 113, 109 };
-//////////////////////| R2 | R3 | R4 | R5 | R6 | R7 | R8 | R9 |///////Ruangan
-//
-//int cposhumanR[] = { 0 ,330, 133, 352, 349, 137 };
-////////////////////////| H1 | H2 | H3 | H4 | H5 |///////Human
-//
-//int cpossafeR[] = { 0, 354, 248, 133, 80, 102 };
-//////////////////////| S1 | S2 | S3 | S4 | S5 |///////SafeZone
-
-// Posisi robot untuk arena latihan kanan
-int cposhomeR = 138;
-int cpostanggaR = 22;
+int cposhomeR = 141;
+int cpostanggaR = 28;
+int cposPuing = 132;
 //////////////| HOME |////
 
-int cposR[] = { 0, 0, 160, 213, 139, 142, 75, 15, 86, 88 };
+int cposR[] = { 0, 0, 143, 202, 143, 125, 86, 26, 90, 88 };
 ////////////////////| R2 | R3 | R4 | R5 | R6 | R7 | R8 | R9 |///////Ruangan
 
-int cposhumanR[] = { 0, 1, 82, 135, 349, 97 };
+int cposhumanR[] = { 0, 143, 82, 130, 349, 130 };
 //////////////////////| H1 | H2 | H3 | H4 | H5 |///////Human
 
-int cpossafeR[] = { 0, 119, 222, 133, 78, 102 };
+int cpossafeR[] = { 0, 119, 222, 133, 86, 102 };
 /////////////////////| S1 | S2 | S3 | S4 | S5 |///////SafeZone
 
 
@@ -183,22 +158,6 @@ int cpossafeL[] = { 0, 103, 188, 133, 322, 109 };
 //////////////////////| S1 | S2 | S3 | S4 | S5 |///////SafeZone
 
 
-////untuk arena latian kiri
-//int cposhomeL = 23;
-////////////////| HOME |///
-//
-//int cposL[] = { 0, 0, 23, 243, 32, 48, 129, 117, 105, 106 };
-/////////////////////| R2 | R3 | R4 | R5 | R6 | R7 | R8 | R9|///////Ruangan
-//
-//int cposhumanL[] =  { 0, 12, 125, 352, 349, 82 };
-////////////////////////| H1 | H2 | H3 | H4 | H5 |///////Human
-//
-//int cpossafeL[] = { 0, 190, 352, 133, 130, 109 };
-////////////////////////| S1 | S2 | S3 | S4 | S5 |///////SafeZone
-
-
-//int coffset = 15;
-
 // Logic Home Activation
 bool homestate = false;
 bool overallhome = false;
@@ -210,6 +169,7 @@ unsigned long int gettimeR1 = 0;
 unsigned long int gettimeR1N = 0;
 bool positioningR3 = false;
 bool camerastate1 = false;
+bool kompasR1 = false;
 
 // Logic For R2
 bool overallR2 = false;
@@ -225,6 +185,7 @@ bool kompas3 = false;
 bool human1aman = false;
 bool stateback = false;
 bool tembok3kanan = false;
+bool shiftR3Done = false;
 unsigned long int gettimeR3 = 0;
 unsigned long int gettimehumanR3 = 0;
 
@@ -278,7 +239,7 @@ bool nanjak = false;
 bool posisi7 = false;
 bool donetangga = false;
 unsigned long int gettimeR7 = 0;
-
+bool positioningR7akhir = false;
 //Logic for R8
 bool overallR8 = false;
 bool positioningR8 = false;
@@ -363,6 +324,18 @@ void applyTestBypass(int room) {
     wallfollowingR6 = true;
     front6 = true;
     tembok6kanan = true;
+    mundur6 = true;     // <-- tambahan baru
+    kompas7set = true;  // <-- tambahan baru
+    rotateH6 = true;
+    kompasH6 = true;
+    ambilhuman6 = true;
+    mundur6humanR6 = true;
+    kompasBalik6 = true;
+    doneHuman6 = true;
+    capitturunstate = true;
+    ambilhuman4 = true;
+    gantikorban4 = true;
+    selesaiHuman6 = true;
   }
 
   // Ruangan 7 selesai
@@ -589,8 +562,16 @@ void loop() {
         if (overallhome == true && overallR1 == false) {
           if (human[1] == false && camerastate[1] == false) {
             TOFKiri = TOF::getkiri();
-            if (TOFKiri > 550) {
-              camerastate[1] = true;
+            if (TOFKiri > 550 && kompasR1 == false) {
+              int comVal = radius(cposhumanR[1]);
+              if (comVal == 0) {
+                kompasR1 = true;
+              } else if (comVal == 1) {
+                legs::rotate_right_low();
+              } else {
+                legs::rotate_left_low();
+              }
+            } else if (TOFKiri > 550 && kompasR1 == true) {
               while (millis() - gettimeR1N <= 2000) {
                 legs::walkspeed = 100;
                 legs::backward_low();
@@ -600,6 +581,7 @@ void loop() {
                 oled.sendBuffer();
               }
               delay(500);
+              camerastate[1] = true;
 
             } else {
               legs::walkspeed = 100;
@@ -615,7 +597,7 @@ void loop() {
             //            oled.drawStr(38, 27, "GET");
             //            oled.drawStr(32, 51, "HUMAN");
             //            oled.sendBuffer();
-            gethuman_low(1, 140);
+            gethuman_low(1, cposhumanR[1]);
             capitnaik = true;
             gettimeR1 = millis();
           }
@@ -686,7 +668,7 @@ void loop() {
         if (overallR1 == true && overallR2 == false) {
           if (tembok2kiri == false && positioningR2 == false) {
             TOFDepan = TOF::getdepan();
-            legs::walkspeed = 150;
+            legs::walkspeed = 100;
             //            oled.clearBuffer();
             //            oled.setFont(u8g2_font_fub11_tr);
             //            oled.drawStr(34, 27, "SHIFT");
@@ -756,6 +738,7 @@ void loop() {
               }
               // Memeriksa apakah telah 2 detik
               if (millis() - gettimeR2 >= 1500) {
+                legs::backward6();
                 overallR2 = true;
                 //              kompas3 = true;
               }
@@ -787,15 +770,23 @@ void loop() {
             }
           }
           if (capitnaik == true && human1aman == false && positioningR3 == false && kompas3 == true && tembok3 == false) {
+  
+            // 1. Jalankan shift kanan selama 2 detik (HANYA SEKALI)
+            if (shiftR3Done == false) {
+              legs::walkspeed = 180;
+              unsigned long t = millis();
+              while (millis() - t <= 2000) {
+                legs::shift6_right_fast();
+              }
+              shiftR3Done = true; // Kunci agar while tidak diulang lagi di loop() berikutnya
+            }
+
+            // 2. Pembacaan Sensor TOF setelah shift selesai
             TOFDepan = TOF::getdepan();
             TOFKanan = TOF::getkanan();
             Serial.println("cek tembok 3 depan");
-            //            oled.clearBuffer();
-            //            oled.setFont(u8g2_font_fub11_tr);
-            //            oled.drawStr(34, 18, "CHECK");
-            //            oled.drawStr(24, 38, "TEMBOK 3");
-            //            oled.drawStr(34, 58, "DEPAN");
-            //            oled.sendBuffer();
+
+            // 3. Koreksi Depan
             if (front3 == false) {
               if (TOFDepan < 270) {
                 legs::backward6();
@@ -805,6 +796,8 @@ void loop() {
                 front3 = true;
               }
             }
+
+            // 4. Koreksi Kanan (Jalan jika front3 sudah true)
             if (front3 == true) {
               if (TOFKanan < 130) {
                 legs::shift6_left();
@@ -814,6 +807,7 @@ void loop() {
                 tembok3 = true;
               }
             }
+          
             //            if (front3 == true) {
             //              if (TOFKanan < 210) {
             //                legs::shift6_left();
@@ -831,14 +825,14 @@ void loop() {
             //            oled.drawStr(34, 27, "CHECK");
             //            oled.drawStr(16, 51, "POSITIONING");
             //            oled.sendBuffer();
-            legs::walkspeed = 180;
-            gettimehumanR3 = millis();
-            while (millis() - gettimehumanR3 <= 2000) {
-              legs::shift6_right();
-            }
+            // legs::walkspeed = 180;
+            // gettimehumanR3 = millis();
+            // while (millis() - gettimehumanR3 <= 2000) {
+            //   legs::shift6_right_fast();
+            // }
             gettimeR3 = millis();
             while (millis() - gettimeR3 <= 1200) {
-              legs::point_rotate_right();
+              legs::rotate6_right();
             }
             positioningR3 = true;
             //            int comVal = radius(cpossafeR[1],R);
@@ -892,10 +886,10 @@ void loop() {
             }
             if (capitnaik == true && tembok3kanan == false) {
               legs::walkspeed = 150;
-              int comVal = radius(cposR[4], R);
+              int comVal = radius(cposR[4], F);
               if (comVal == 0) {
                 unsigned long t = millis();
-                while (millis() - t <= 1000) {
+                while (millis() - t <= 2000) {
                   legs::forward6();
                 }
                 t = millis();  // reset waktu untuk timer baru
@@ -1040,8 +1034,8 @@ void loop() {
               if (TOFDepan < 240) {
                 legs::backward6();
               } else if (TOFDepan > 260) {
-                //                legs::forward6_high();
-                WallFollowingRight6();
+                legs::forward6_high();
+                // WallFollowingRight6();
               } else {
                 front4 = true;
               }
@@ -1121,36 +1115,6 @@ void loop() {
             }
           }
         }
-
-        // Ruangan 5
-        //         if (overallR4 == true && overallR5 == false) {
-        //           legs::walkspeed = 150;
-        //           if (positioningR5 == false && kompas5 == false && tembok5 == false) {
-        //             TOFKanan = TOF::getkanan();
-        //             TOFDepan = TOF::getdepan();
-        //             Serial.println("cek positioning 5");
-        // //            oled.clearBuffer();
-        // //            oled.setFont(u8g2_font_fub14_tr);
-        // //            oled.drawStr(34, 27, "CHECK");
-        // //            oled.drawStr(16, 51, "POSITIONING");
-        // //            oled.sendBuffer();
-        //             if (right == false) {
-        //               if (TOFKanan < 295) {
-        //                 legs::walkspeed = 150;
-        //                 legs::shift6_left_fast();
-        //               } else {
-        //                 right = true;
-        //               }
-        //             }
-        //             if (right == true) {
-        //               if (TOFDepan > 100) {
-        //                 legs::forward6();
-        //               } else {
-        //                 positioningR5 = true;
-        //               }
-        //             }
-        //           }
-
         if (overallR4 == true && overallR5 == false) {
           legs::walkspeed = 150;
           if (positioningR5 == false && kompas5 == false && tembok5 == false) {
@@ -1277,28 +1241,21 @@ void loop() {
             TOFKiri = TOF::getkiri();
             TOFDepan = TOF::getdepan();
             Serial.println("ruangan 6");
-            //            oled.clearBuffer();
-            //            oled.setFont(u8g2_font_fub14_tr);
-            //            oled.drawStr(20, 39, "RUANGAN 6");
-            //            oled.sendBuffer();
-            if (TOFDepan < 460) {
+
+            int comVal = radius(cposPuing, F, 5);
+            if (comVal == 1) {
+              legs::rotate_right_slow();
+            } else if (comVal == -1) {
+              legs::rotate_left_slow();
+            } else if (TOFDepan < 460) {
               legs::backward();
-              // gettimeR5 = millis();
             } else {
-              // while (millis() - gettimeR5 <= 3000){
-              //   // legs::rotate_left_fast();
-              // }
               overallR5 = true;
               oled.clearBuffer();
               oledPrint("Ruangan", 30);
               oledPrint("6", 50);
               oled.sendBuffer();
             }
-            //            if (TOFKiri > 220) {
-            //              legs::shift_left_fast();
-            //            } else {
-            //              overallR5 = true;
-            //            }
           }
         }
 
@@ -1313,7 +1270,7 @@ void loop() {
 
             // tahap 1: shift kiri sampai TOFKiri >= 235
             if (doneHuman6 == false && rotateH6 == false && camerastate[3] == false && human[3] == false && mundur6humanR6 == false && kompasBalik6 == false) {
-              if (TOFKanan > 300) {
+              if (TOFKanan > 380) {
                 rotateH6 = true;
               } else {
                 legs::walkspeed = 150;
@@ -1345,28 +1302,46 @@ void loop() {
 
             // tahap 3: ambil korban 3, atau skip kalau ternyata cuma dummy
             if (doneHuman6 == false && rotateH6 == true && camerastate[3] == true && human[3] == false && mundur6humanR6 == false && kompasBalik6 == false) {
+              
+              // Variabel lokal static (hanya dibaca & disimpan di dalam blok ini)
+              static unsigned long timeCamXMinus1 = 0;
+
               if (cam::camx == -1) {
-                Serial.println("Human 3 Tidak Terdeteksi / Sudah Diambil Musuh! Skip...");
-                human[3] = true;
-                ambilhuman4 = true;
-                oled.clearBuffer();
-                oledPrint("PASS", 30);
-                oledPrint("HUMAN 3", 50);
-                oled.sendBuffer();
-              } else {
-                Serial.println("Get Human 3");
-                gethuman6puing(3, 135);
-                if (human[3] == true) {
-                  legs::walkspeed = 150;
-                  unsigned long t = millis();
-                  while (millis() - t <= 3000) {
-                    legs::backward6();
+                  // Catat waktu awal saat camx pertama kali bernilai -1
+                  if (timeCamXMinus1 == 0) {
+                      timeCamXMinus1 = millis();
                   }
-                  legs::capitbuka();
-                  ambilhuman4 = true;
-                }
+
+                  // Cek apakah sudah 2000 ms (2 detik) berlalu
+                  if (millis() - timeCamXMinus1 >= 2000) {
+                      Serial.println("Human 3 Tidak Terdeteksi selama 2 detik! Skip...");
+                      human[3] = true;
+                      ambilhuman4 = true;
+                      oled.clearBuffer();
+                      oledPrint("PASS", 30);
+                      oledPrint("HUMAN 3", 50);
+                      oled.sendBuffer();
+
+                      // Reset timer
+                      timeCamXMinus1 = 0;
+                  }
+              } else {
+                  // Reset timer jika objek terdeteksi kembali sebelum 2 detik
+                  timeCamXMinus1 = 0;
+
+                  Serial.println("Get Human 3");
+                  gethuman6puing(3, cposhumanR[3]);
+                  if (human[3] == true) {
+                      legs::walkspeed = 100;
+                      unsigned long t = millis();
+                      while (millis() - t <= 5000) {
+                          legs::backward6();
+                      }
+                      legs::capitbuka();
+                      ambilhuman4 = true;
+                  }
               }
-            }
+          }
 
             // KONDISI GANTI HUMAN 4
             if (ambilhuman4 == true && gantikorban4 == false && camerastate[4] == false && human[4] == false) {
@@ -1384,7 +1359,7 @@ void loop() {
 
             if (ambilhuman4 == true && gantikorban4 == true && camerastate[4] == false && human[4] == false) {
               Serial.println("prepare camera 6 (human 4)");
-              int comVal = radius(cposhumanR[3], F, 10);
+              int comVal = radius(cposhumanR[3], L, 10);
               if (comVal == 1) {
                 legs::rotate6_right();
               } else if (comVal == -1) {
@@ -1404,29 +1379,47 @@ void loop() {
             }
 
             if (ambilhuman4 == true && gantikorban4 == true && camerastate[4] == true && human[4] == false) {
+    
+              // Variabel lokal static untuk mencatat waktu (tidak di tingkat global)
+              static unsigned long timeCamXMinus1_H4 = 0;
+
               if (cam::camx == -1) {
-                Serial.println("Human 4 Tidak Terdeteksi / Sudah Diambil Musuh! Skip...");
-                human[4] = true;
-                selesaiHuman6 = true;
-                oled.clearBuffer();
-                oledPrint("PASS", 30);
-                oledPrint("HUMAN 4", 50);
-                oled.sendBuffer();
+                  // Catat waktu awal saat camx pertama kali bernilai -1
+                  if (timeCamXMinus1_H4 == 0) {
+                      timeCamXMinus1_H4 = millis();
+                  }
+
+                  // Cek apakah sudah 2000 ms (2 detik) berlalu berturut-turut
+                  if (millis() - timeCamXMinus1_H4 >= 2000) {
+                      Serial.println("Human 4 Tidak Terdeteksi / Sudah Diambil Musuh! Skip...");
+                      human[4] = true;
+                      selesaiHuman6 = true;
+                      oled.clearBuffer();
+                      oledPrint("PASS", 30);
+                      oledPrint("HUMAN 4", 50);
+                      oled.sendBuffer();
+
+                      // Reset timer
+                      timeCamXMinus1_H4 = 0;
+                  }
               } else {
-                Serial.println("Get Human 4");
-                gethuman6puing(4, 135);
-                if (human[4] == true) {
-                  selesaiHuman6 = true;
-                }
+                  // Reset timer jika objek terdeteksi kembali sebelum 2 detik
+                  timeCamXMinus1_H4 = 0;
+
+                  Serial.println("Get Human 4");
+                  gethuman6puing(4, 135);
+                  if (human[4] == true) {
+                      selesaiHuman6 = true;
+                  }
               }
             }
             // END OF GANTI HUMAN 4
 
             // tahap 4: mundur 2 detik
             if (doneHuman6 == false && rotateH6 == true && selesaiHuman6 == true && mundur6humanR6 == false && kompasBalik6 == false) {
-              legs::walkspeed = 150;
+              legs::walkspeed = 100;
               unsigned long t = millis();
-              while (millis() - t <= 2000) {
+              while (millis() - t <= 3000) {
                 legs::backward6();
               }
               mundur6humanR6 = true;
@@ -1434,7 +1427,7 @@ void loop() {
 
             // tahap 5: rotate balik ke cposR[6], setelah pas lanjut normal lagi
             if (doneHuman6 == false && rotateH6 == true && selesaiHuman6 == true && mundur6humanR6 == true && kompasBalik6 == false) {
-              int comVal = radius(cposR[6], L);
+              int comVal = radius(cposR[6], F, 8);
               if (comVal == 0) {
                 kompasBalik6 = true;
                 doneHuman6 = true;
@@ -1447,6 +1440,7 @@ void loop() {
 
             // tahap 6: lanjut wall following normal seperti semula
             if (doneHuman6 == true && rotateH6 == true && selesaiHuman6 == true && mundur6humanR6 == true && kompasBalik6 == true) {
+              legs::walkspeed = 150;
               int comVal = radius(cposR[6], F, 10);
               if (comVal == -1) {
                 legs::rotate_left_fast();
@@ -1560,7 +1554,7 @@ void loop() {
             legs::walkspeed = 150;
 
             if (kompas7set == false) {
-              int comVal = radius(cposR[7], F);
+              int comVal = radius(cposR[7], F, 2);
               if (comVal == 0) {
                 kompas7set = true;
               } else if (comVal == 1) {
@@ -1572,9 +1566,9 @@ void loop() {
 
             if (kompas7set == true && mundur6 == false) {
               TOFDepan = TOF::getdepan();
-              if (TOFDepan < 345) {
+              if (TOFDepan < 400) {
                 legs::backward6();
-              } else if (TOFDepan > 400) {
+              } else if (TOFDepan > 460) {
                 legs::forward6();
               } else {
                 mundur6 = true;
@@ -1584,14 +1578,14 @@ void loop() {
             if (kompas7set == true && mundur6 == true) {
               legs::walkspeed = 150;
               unsigned long t = millis();
-              while (millis() - t <= 4000) {
+              while (millis() - t <= 7000) {
                 legs::shift6_right_high_fast();
               }
               overallR6 = true;
             }
           }
           }
-        }
+        
 
 
         //Ruangan 7 shift
@@ -1607,46 +1601,59 @@ void loop() {
             TOFDepan = TOF::getdepan();
             legs::walkspeed = 150;
 
+            static unsigned long waktuMulaiTangga = 0;
+            static bool tanggaMulai = false;
+            static unsigned long timerCekKeluar = 0;
             static unsigned long timerKeluar = 0;
             static bool faseKeluar = false;
 
-            // 1. CEK ATAU TRIGER KELUAR TANGGA
-            if (TOFDepan > 350 && !faseKeluar) {
-              faseKeluar = true;
-              timerKeluar = millis();  // Mulai timer 3 detik
+            if (tanggaMulai == false) {
+              waktuMulaiTangga = millis();
+              tanggaMulai = true;
+            }
+
+            bool sudahMinimalNaik = (millis() - waktuMulaiTangga >= 2000);
+
+            // 1. CEK / TRIGGER KELUAR TANGGA, dengan minimal waktu + debounce
+            if (sudahMinimalNaik && TOFDepan > 350 && !faseKeluar) {
+              if (timerCekKeluar == 0) {
+                timerCekKeluar = millis();
+              }
+              if (millis() - timerCekKeluar >= 500) {
+                faseKeluar = true;
+                timerKeluar = millis();
+              }
+            } else if (TOFDepan <= 350) {
+              timerCekKeluar = 0;
             }
 
             // 2. EKSEKUSI GERAKAN
             if (faseKeluar) {
-              // KONDISI KELUAR TANGGA (Berjalan selama 3 detik):
-              // Abaikan kompas dan TOFDepan, paksa robot murni jalan shift6_right_fast()
               legs::shift6_right_fast();
-
-              if (millis() - timerKeluar >= 5000) {
-                kiri = true;  // Pindah ke tahap berikutnya
+              if (millis() - timerKeluar >= 4000) {
+                kiri = true;
                 gettimeR7 = millis();
-                faseKeluar = false;  // Reset flag
+                faseKeluar = false;
               }
             } else {
-              // KONDISI DALAM TANGGA (Normal):
-              // Masih membaca kompas & menyesuaikan posisi depan/belakang
               oled.clearBuffer();
-              oled.setFont(u8g2_font_fub14_tr);
+              oled. setFont(u8g2_font_fub14_tr);
               oled.drawStr(34, 27, "NAIK");
               oled.drawStr(30, 51, "TANGGA");
               oled.sendBuffer();
-              legs::walkspeed = 400;
-              int comVal = radius(cpostanggaR, R, 15);
+              legs::walkspeed = 300;
+              int comVal = radius(cpostanggaR, R, 20);
               if (comVal == 1) {
                 legs::rotate6_right_1cm();
               } else if (comVal == -1) {
                 legs::rotate6_left_1cm();
               } else {
-                // legs::shift6_right_high_fast();
-                if (TOFDepan < 100) {
+                if (TOFDepan <= 100) {
                   legs::backward6();
+                } else if (TOFDepan > 200) {
+                  legs::rotate6_left_1cm();
                 } else {
-                  legs::walkspeed = 200;
+                  legs::walkspeed = 150;
                   legs::shift6_right_high_fast();
                 }
               }
@@ -1658,52 +1665,102 @@ void loop() {
             Serial.println("positioning ke R8");
             legs::walkspeed = 150;
 
-            if (kompas8 == false) {
-              int comVal = radius(cposhumanR[5], R);
-              if (comVal == 0) {
-                kompas8 = true;          // Rotasi selesai, kunci kompas8
-              } else if (comVal == 1) {  // Diberi 'if'
-                legs::rotate6_right();
-              } else {  // Handle jika comVal == -1
-                legs::rotate6_left();
+            if (kiri == true) {
+              TOFDepan = TOF::getdepan();
+              TOFKanan = TOF::getkanan();
+              legs::walkspeed = 400;
+              Serial.println("Cek Positioning 4");
+
+              // ==========================================
+              // STEP 1: Cek & Eksekusi Kompas/Rotasi Dulu
+              // ==========================================
+              if (kompas8 == false) {
+                int comVal = radius(cpossafeR[4], R, 5);
+                if (comVal == 0) {
+                  kompas8 = true; // Rotasi selesai, kunci kompas8
+                } else if (comVal == 1) {
+                  legs::rotate6_right();
+                } else {
+                  legs::rotate6_left();
+                }
+              } 
+              // ==========================================
+              // STEP 2: Kompas Sudah Pas -> Koreksi TOF Depan
+              // ==========================================
+              else if (positioningR7akhir == false) {
+                if (TOFDepan < 230) {
+                  legs::backward();
+                } else if (TOFDepan > 240) {
+                  legs::forward();
+                } else {
+                  positioningR7akhir = true;
+                }
               }
-            } else {
-              // Jalankan baris ini HANYA JIKA kompas8 SUDAH true (rotasi selesai)
-              if (overallR7 == false) {
-                overallR7 = true;
-                oled.clearBuffer();
-                oledPrint("Ruangan", 30);
-                oledPrint("8", 50);
-                oled.sendBuffer();
+              // ==========================================
+              // STEP 3: Kompas & Jarak Sudah Pas -> Eksekusi Akhir
+              // ==========================================
+              else {
+                if (overallR7 == false) {
+                  legs::walkspeed = 150;
+                  unsigned long t = millis();
+                  while (millis() - t <= 1000) {
+                    legs::point_rotate_left();
+                  }
+                  legs::CapitJepit2();
+                  delay(500);
+                  legs::CapitTurun2();
+                  t = millis();
+                  while (millis() - t <= 1000) {
+                    legs::walkspeed = 200;
+                    legs::backward();
+                  }
+                  legs::capitnaik(1);
+                  delay(200);
+                  legs::capitbuka();
+                  t = millis();
+                  while (millis() - t <= 3000) {
+                    legs::walkspeed = 200;
+                    legs::rotate6_right();
+                  }
+                  overallR7 = true;
+
+                  oled.clearBuffer();
+                  oledPrint("Ruangan", 30);
+                  oledPrint("8", 50);
+                  oled.sendBuffer();
+                }
               }
             }
           }
         }
         //Ruangan 8
         if (overallR7 == true && overallR8 == false) {
-          // 1. Cek Kompas & Deteksi Human 5
+        // 1. Cek Kompas & Deteksi Human 5
           if (kompas8 == false && human[5] == false) {
-            legs::walkspeed = 180;
+            legs::walkspeed = 400;
             Serial.println("cek kompas 8");
 
-            int comVal = radius(cposhumanR[5], R);
+            int comVal = radius(cposhumanR[5]);
+            
             if (comVal == 0) {
               kompas8 = true;
               front8 = false;
-              delay(500);
+              legs::walkspeed = 150; // Pelankan gerakan agar robot stabil
+              delay(500);            // Beri jeda agar pembacaan kamera stabil
 
               // CEK KORBAN ASLI
-              // camx != -1 berarti korban asli (ID 1) terdeteksi oleh kamera
               if (cam::camx != -1) {
-                // Korban asli ADA -> siap diambil
                 Serial.println("Korban Asli Terdeteksi!");
               } else {
-                // Korban asli TIDAK ADA (Mungkin hanya ada dummy atau kosong)
                 Serial.println("Korban Asli Tidak Ada / Sudah Diambil Musuh!");
-                human[5] = true;  // Tandai selesai agar robot tidak mencoba mengambil
+                human[5] = true;  // Tandai selesai agar robot skip pengambilan
               }
-            } else {
-              legs::rotate6_right_1cm();
+            } 
+            else if (comVal == 1) {
+              legs::rotate6_right(); // Target di kanan -> Putar Kanan
+            } 
+            else {
+              legs::rotate6_left();  // FIX: Target di kiri -> Putar Kiri
             }
           }
 
@@ -1714,6 +1771,7 @@ void loop() {
             capitnaik = true;
           }
 
+
           // 3. Menuju Ruangan 9
           else if (kompas8 == true && human[5] == true) {
             TOFDepan = TOF::getdepan();
@@ -1723,7 +1781,7 @@ void loop() {
             int comVal = radius(cposR[8], L);
             if (comVal == 0) {
               if (front8 == false) {
-                if (TOFDepan < 370) {
+                if (TOFDepan < 100) {
                   legs::backward6();
                 } else if (TOFDepan > 490) {
                   legs::forward6();
@@ -1794,9 +1852,9 @@ void loop() {
               }
             }
             if (left == true) {
-              if (TOFDepan < 230) {
+              if (TOFDepan < 250) {
                 legs::backward();
-              } else if (TOFDepan > 250) {
+              } else if (TOFDepan > 270) {
                 legs::forward_1cm();
               } else {
                 positioningR9 = true;
@@ -2934,7 +2992,7 @@ void loop() {
       }
     }
   }
-
+}
 
 
 
@@ -3175,7 +3233,7 @@ void gethuman_low(int nhuman, int targetHeading) {
 
   if (posisi[nhuman] == false) {
     if (tengah == false) {
-      legs::walkspeed = 120;
+      legs::walkspeed = 130;
 
       int headingCheck = radius(targetHeading);  // pakai default type=F, coffset=15
 
@@ -3193,20 +3251,20 @@ void gethuman_low(int nhuman, int targetHeading) {
         if (x <= center + camoffset && x >= center - camoffset) {
           tengah = true;
         } else if (x < center - camoffset) {
-          legs::shift_left_low_1cm();
+          legs::shift6_left_1cm();
           Serial.println("shift left");
         } else if (x > center + camoffset) {
-          legs::shift_right_low_1cm();
+          legs::shift6_right_1cm();
           Serial.println("shift right");
         }
       }
     }
     if (tengah == true) {
-      if (depan < 245) {
+      if (depan < 235) {
         posisi[nhuman] = true;
       } else {
         legs::walkspeed = 200;
-        legs::forward_low();
+        legs::forward_low_1cm();
       }
     }
   }
@@ -3248,12 +3306,12 @@ void gethuman6puing(int nhuman, int targetHeading) {
           Serial.println("rotate left (heading)");
         }
       } else {
-        if (x <= center + camoffset && x >= center - camoffset) {
+        if (x <= 380 + camoffset && x >= 380 - camoffset) {
           tengah = true;
-        } else if (x < center - camoffset) {
+        } else if (x < 380 - camoffset) {
           legs::shift6_left_high();
           Serial.println("shift left");
-        } else if (x > center + camoffset) {
+        } else if (x > 380 + camoffset) {
           legs::shift6_right_high();
           Serial.println("shift right");
         }
@@ -3263,7 +3321,7 @@ void gethuman6puing(int nhuman, int targetHeading) {
     // tahap 2: sudah center, capit turun + buka sedikit (cuma sekali)
     if (tengah == true && capitturunstate == false) {
       Serial.println("capit turun & buka sedikit");
-      legs::capitturun(4);
+      legs::capitturun(1);
       legs::capitbukasedikit();
       capitturunstate = true;
     }
@@ -3305,7 +3363,7 @@ void gethuman6puing(int nhuman, int targetHeading) {
         Serial.println("koreksi kiri (approach)");
       } else {
         unsigned long t = millis();
-        while ((millis() - t <= 4000) && (TOF::getcapit() >= 80)) {
+        while ((millis() - t <= 4000)) {
           legs::walkspeed = 200;
           legs::forward6();
         }
@@ -3317,6 +3375,7 @@ void gethuman6puing(int nhuman, int targetHeading) {
   // tahap 4: sudah pas di jarak 85, buka capit penuh, ambil korban
   if (posisi[nhuman] == true) {
     legs::capitbuka();
+    legs::capitturun(4);
     delay(250);
     legs::point_forward_state();
     delay(250);
@@ -3591,10 +3650,10 @@ void gethuman4(int nhuman) {
       if (x <= center + camoffset && x >= center - camoffset) {
         tengah = true;
       } else if (x < center - camoffset) {
-        legs::rotate6_left_slow();
+        legs::rotate6_left_1cm();
         Serial.println("shift left");
       } else if (x > center + camoffset) {
-        legs::rotate6_right_slow();
+        legs::rotate6_right_1cm();
         Serial.println("shift right");
       }
     }
