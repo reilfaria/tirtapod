@@ -2922,7 +2922,7 @@ void capitjepit() {
   delay(150);
 }
 void capitbukasedikit() {
-  Serial2.print("#16 P600 T150 \r");
+  Serial2.print("#16 P700 T150 \r");
   delay(150);
 }
 //void engselnaik() {
