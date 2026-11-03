@@ -129,18 +129,18 @@ unsigned long int camtime = 0;
 
 //// Compass Parameter
 //// untuk arena kanan
-int cposhomeR = 141;
-int cpostanggaR = 28;
-int cposPuingR = 132;
+int cposhomeR = 273;
+int cpostanggaR = 105;
+int cposPuingR = 300;
 //////////////| HOME |////
 
-int cposR[] = { 0, 0, 143, 202, 143, 125, 86, 26, 90, 88 };
+int cposR[] = { 0, 0, 275, 180, 267, 315, 21, 118, 16, 6 };
 ////////////////////| R2 | R3 | R4 | R5 | R6 | R7 | R8 | R9 |///////Ruangan
 
-int cposhumanR[] = { 0, 143, 82, 130, 349, 130 };
+int cposhumanR[] = { 0, 272, 28, 295, 349, 329 };
 //////////////////////| H1 | H2 | H3 | H4 | H5 |///////Human
 
-int cpossafeR[] = { 0, 119, 222, 133, 86, 102 };
+int cpossafeR[] = { 0, 119, 222, 133, 21, 102 };
 /////////////////////| S1 | S2 | S3 | S4 | S5 |///////SafeZone
 
 
@@ -261,7 +261,7 @@ bool left = false;
 
 
 // ==== TEST BYPASS CONFIG ====
-int TEST_START_ROOM = 6;  // ganti sesuai ruangan yang mau ditest. 0 = normal run dari home
+int TEST_START_ROOM = 0;  // ganti sesuai ruangan yang mau ditest. 0 = normal run dari home
 
 void applyTestBypass(int room) {
   // Home
@@ -532,7 +532,7 @@ void loop() {
     //Kondisi Kanan =======
     if (isRight == LOW) {
       if (homestate == false && overallhome == false) {
-        legs::walkspeed = 150;
+        legs::walkspeed = 100;
         int comVal = radius(cposhomeR, F);
         if (comVal == 0) {
           //          Serial.println("Forward Low");
