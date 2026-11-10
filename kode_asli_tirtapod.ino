@@ -363,6 +363,8 @@ void applyTestBypass(int room) {
   }
 }
 
+#include "tuning.h"  // tuning lewat Serial (butuh variabel di atas)
+
 void setup() {
   Serial.begin(38400);
   cam::setup1();
@@ -384,6 +386,8 @@ void setup() {
   legs::capitbuka();
   delay(200);
   isRight = digitalRead(toggle);
+  tuning::muat();
+  Serial.println(String() + "Start dari ruangan " + TEST_START_ROOM + "  (ketik help untuk tuning)");
   applyTestBypass(TEST_START_ROOM);
   //  Serial.println(String() + "Compass : " + compass::heading());
   ////    Serial.println(String() + "MPU : " + compass::pitch());
@@ -433,6 +437,20 @@ int radius(int targetHeading, mode type = F, int coffset = 15) {
 }
 
 
+// Cek kompas pakai titik dari tuning.h (target, mode F/R/L, toleransi)
+int kompas(int id) {
+  const tuning::TitikKompas& k = tuning::kp[id];
+  mode m = F;
+  if (k.mode == 'R') m = R;
+  else if (k.mode == 'L') m = L;
+  return radius(k.target, m, k.tol);
+}
+
+// Hanya target heading-nya (untuk fungsi gethuman yang minta target)
+int kompasTarget(int id) {
+  return tuning::kp[id].target;
+}
+
 //== END GUUNSI KOMPASSSSSSSSSSSSS
 
 void setup1() {
@@ -443,11 +461,18 @@ void setup1() {
 
 void loop() {
   cam::checkTimeout();
-  if (Serial.available() > 0) {
-    incomingByte = Serial.read();
-    if (incomingByte == 'p') {
+  String barisSerial;
+  if (tuning::bacaBaris(barisSerial)) {
+    if (barisSerial == "p") {
+      incomingByte = 'p';
       point0state = !point0state;
       Activation = !Activation;
+    } else if (barisSerial == "r") {
+      incomingByte = 'r';
+    } else if (Activation == false) {
+      tuning::perintah(barisSerial);
+    } else {
+      Serial.println("Tuning hanya saat standby. Ketik p untuk stop dulu.");
     }
   }
 
@@ -491,11 +516,9 @@ void loop() {
     oled.clearBuffer();
     oledPrint("Heading", 20);
     oledPrintVal(compasshead, 40);
-    if (isRight == LOW) {
-      oledPrint("Right", 60);
-    } else {
-      oledPrint("Left", 60);
-    }
+    char infoArena[16];
+    snprintf(infoArena, sizeof(infoArena), "%s S%d", (isRight == LOW) ? "Right" : "Left", TEST_START_ROOM);
+    oledPrint(infoArena, 60);
     oled.sendBuffer();
     legs::point_ready();
     //    legs::forward6_mpuup();
@@ -506,9 +529,11 @@ void loop() {
     //    legs::capitbuka();
     //    legs::capitjepit();
 
+    if (tuning::logStandby) {
     Serial.println(String() + "Compass : " + compasshead);
     //    Serial.println(String() + "MPU : " + compass::pitch());
     Serial.println(String() + TOF::getkanan() + "\t" + TOF::getserongkanan() + "\t" + TOF::getdepan() + "\t" + TOF::getserongkiri() + "\t" + TOF::getkiri() + "\t" + TOF::getcapit() + "\t");
+    }
     //    Serial.println(String()+"Korban: "+cam::camx+","+cam::camy+"\t Dummy: "+cam::camx_dummy+","+cam::camy_dummy);
   }
 
@@ -535,7 +560,7 @@ void loop() {
     if (isRight == LOW) {
       if (homestate == false && overallhome == false) {
         legs::walkspeed = 100;
-        int comVal = radius(cposhomeR, F);
+        int comVal = kompas(tuning::K_HOME);
         if (comVal == 0) {
           //          Serial.println("Forward Low");
           //          oled.clearBuffer();
@@ -566,8 +591,8 @@ void loop() {
         if (overallhome == true && overallR1 == false) {
           if (human[1] == false && camerastate[1] == false) {
             TOFKiri = TOF::getkiri();
-            if (TOFKiri > 550 && kompasR1 == false) {
-              int comVal = radius(cposhumanR[1]);
+            if (TOFKiri > tuning::par[tuning::R1_KIRI_BUKA] && kompasR1 == false) {
+              int comVal = kompas(tuning::K_R1_HUMAN);
               if (comVal == 0) {
                 kompasR1 = true;
               } else if (comVal == 1) {
@@ -575,8 +600,8 @@ void loop() {
               } else {
                 legs::rotate_left_low();
               }
-            } else if (TOFKiri > 550 && kompasR1 == true) {
-              while (millis() - gettimeR1N <= 2000) {
+            } else if (TOFKiri > tuning::par[tuning::R1_KIRI_BUKA] && kompasR1 == true) {
+              while (millis() - gettimeR1N <= tuning::par[tuning::R1_MUNDUR_MS]) {
                 legs::walkspeed = 100;
                 legs::backward_low();
                 oled.clearBuffer();
@@ -601,12 +626,12 @@ void loop() {
             //            oled.drawStr(38, 27, "GET");
             //            oled.drawStr(32, 51, "HUMAN");
             //            oled.sendBuffer();
-            gethuman_low(1, cposhumanR[1]);
+            gethuman_low(1, kompasTarget(tuning::K_R1_AMBIL));
             capitnaik = true;
             gettimeR1 = millis();
           }
           if (human[1] == true && camerastate[1] == true) {
-            while (millis() - gettimeR1 <= 2000) {
+            while (millis() - gettimeR1 <= tuning::par[tuning::R1_MUNDUR2_MS]) {
               legs::backward_low();
             }
             overallR1 = true;
@@ -675,7 +700,7 @@ void loop() {
             if (mulaiShiftR2 == 0) mulaiShiftR2 = millis();
 
             TOFDepan = TOF::getdepan();          // baca di awal supaya selalu tampil
-            int comVal = radius(cposR[2], F, 25);
+            int comVal = kompas(tuning::K_R2_GESER);
 
             if (comVal == 1) {
               legs::rotate6_right_high_1cm();
@@ -685,7 +710,7 @@ void loop() {
               legs::rotate6_left_high_1cm();
               timerDepanJauhR2 = 0;
             } else {
-              if (TOFDepan > 700) {
+              if (TOFDepan > tuning::par[tuning::R2_DEPAN_JAUH]) {
                 tembok2kiri = true;      // depan lapang → lanjut rotate ke R3
               } else {
                 legs::shift6_right_high_fast();
@@ -700,7 +725,7 @@ void loop() {
             //            oled.drawStr(34, 27, "CHECK");
             //            oled.drawStr(32, 51, "COMPAS");
             //            oled.sendBuffer();
-            int comVal = radius(cposR[3], R);
+            int comVal = kompas(tuning::K_R2_KE_R3);
             if (comVal == 0) {
               positioningR2 = true;
               overallR2 = true;
@@ -764,7 +789,7 @@ void loop() {
             //            oled.drawStr(32, 51, "COMPAS");
             //            oled.sendBuffer();
             legs::walkspeed = 150;
-            int comVal = radius(cposR[3], F);
+            int comVal = kompas(tuning::K_R3_LURUS);
             //checkpoin
             if (comVal == 0) {
               kompas3 = true;
@@ -781,7 +806,7 @@ void loop() {
             if (shiftR3Done == false) {
               legs::walkspeed = 180;
               unsigned long t = millis();
-              while (millis() - t <= 2000) {
+              while (millis() - t <= tuning::par[tuning::R3_SHIFT_MS]) {
                 legs::shift6_right_fast();
               }
               shiftR3Done = true; // Kunci agar while tidak diulang lagi di loop() berikutnya
@@ -794,9 +819,9 @@ void loop() {
 
             // 3. Koreksi Depan
             if (front3 == false) {
-              if (TOFDepan < 270) {
+              if (TOFDepan < tuning::par[tuning::R3_DEPAN_MIN]) {
                 legs::backward6();
-              } else if (TOFDepan > 290) {
+              } else if (TOFDepan > tuning::par[tuning::R3_DEPAN_MAX]) {
                 legs::forward6();
               } else {
                 front3 = true;
@@ -805,9 +830,9 @@ void loop() {
 
             // 4. Koreksi Kanan (Jalan jika front3 sudah true)
             if (front3 == true) {
-              if (TOFKanan < 130) {
+              if (TOFKanan < tuning::par[tuning::R3_KANAN_MIN]) {
                 legs::shift6_left();
-              } else if (TOFKanan > 150) {
+              } else if (TOFKanan > tuning::par[tuning::R3_KANAN_MAX]) {
                 legs::shift6_right();
               } else {
                 tembok3 = true;
@@ -837,7 +862,7 @@ void loop() {
             //   legs::shift6_right_fast();
             // }
             gettimeR3 = millis();
-            while (millis() - gettimeR3 <= 1200) {
+            while (millis() - gettimeR3 <= tuning::par[tuning::R3_ROTATE_MS]) {
               legs::rotate6_right();
             }
             positioningR3 = true;
@@ -871,7 +896,7 @@ void loop() {
             //            oled.setFont(u8g2_font_fub14_tr);
             //            oled.drawStr(20, 39, "STATEBACK");
             //            oled.sendBuffer();
-            while (millis() - gettimeR3 <= 2000) {
+            while (millis() - gettimeR3 <= tuning::par[tuning::R3_MUNDUR_MS]) {
               legs::walkspeed = 150;
               legs::backward6();
             }
@@ -892,14 +917,14 @@ void loop() {
             }
             if (capitnaik == true && tembok3kanan == false) {
               legs::walkspeed = 150;
-              int comVal = radius(cposR[4], F);
+              int comVal = kompas(tuning::K_R3_KE_R4);
               if (comVal == 0) {
                 unsigned long t = millis();
-                while (millis() - t <= 2000) {
+                while (millis() - t <= tuning::par[tuning::R3_MAJU_MS]) {
                   legs::forward6();
                 }
                 t = millis();  // reset waktu untuk timer baru
-                while (millis() - t <= 2000) {
+                while (millis() - t <= tuning::par[tuning::R3_GESER_MS]) {
                   legs::shift6_right_high_fast();
                 }
                 tembok3kanan = true;
@@ -909,7 +934,7 @@ void loop() {
             }
             if (capitnaik == true && tembok3kanan == true) {
               TOFKanan = TOF::getkanan();
-              if (TOFKanan > 130) {
+              if (TOFKanan > tuning::par[tuning::R3_KANAN_R4]) {
                 legs::shift6_right_high_fast();
               } else {
                 overallR3 = true;
@@ -936,7 +961,7 @@ void loop() {
             legs::walkspeed = 150;
             legs::forward6_high();
             // WallFollowingRight6();
-            if (TOFDepan < 510) {
+            if (TOFDepan < tuning::par[tuning::R4_DEPAN]) {
               // Memulai penghitungan waktu jika belum dimulai
               if (gettimeR4 == 0) {
                 gettimeR4 = millis();
@@ -979,7 +1004,7 @@ void loop() {
             //            oled.drawStr(32, 51, "CAMERA");
             //            oled.sendBuffer();
             legs::walkspeed = 150;
-            int comVal = radius(cposhumanR[2], L);
+            int comVal = kompas(tuning::K_R4_KAMERA);
             if (comVal == 0) {
               camerastate[2] = true;
               oled.clearBuffer();
@@ -1010,11 +1035,11 @@ void loop() {
             //            oled.drawStr(34, 27, "CHECK");
             //            oled.drawStr(32, 51, "COMPAS");
             //            oled.sendBuffer();
-            while (millis() - gettimeR4 <= 1500) {
+            while (millis() - gettimeR4 <= tuning::par[tuning::R4_MUNDUR_MS]) {
               legs::walkspeed = 150;
               legs::backward6();
             }
-            int comVal = radius(cposR[4], R);
+            int comVal = kompas(tuning::K_R4_BALIK);
             if (comVal == 0) {
               kompas4 = true;
               //            legs::walkspeed = 150;
@@ -1037,9 +1062,9 @@ void loop() {
             //            oled.drawStr(16, 51, "POSITIONING");
             //            oled.sendBuffer();
             if (front4 == false) {
-              if (TOFDepan < 240) {
+              if (TOFDepan < tuning::par[tuning::R4_DEPAN_MIN]) {
                 legs::backward6();
-              } else if (TOFDepan > 260) {
+              } else if (TOFDepan > tuning::par[tuning::R4_DEPAN_MAX]) {
                 legs::forward6_high();
                 // WallFollowingRight6();
               } else {
@@ -1048,9 +1073,9 @@ void loop() {
             }
 
             if (front4 == true) {
-              if (TOFKanan < 140) {  //230
+              if (TOFKanan < tuning::par[tuning::R4_KANAN_MIN]) {  //230
                 legs::shift6_left_high();
-              } else if (TOFKanan > 170) {  //260
+              } else if (TOFKanan > tuning::par[tuning::R4_KANAN_MAX]) {  //260
                 legs::shift6_right_high();
               } else {
                 positioningR4 = true;
@@ -1066,7 +1091,7 @@ void loop() {
             //            oled.sendBuffer();
             legs::walkspeed = 150;
             gettimeR4 = millis();
-            while (millis() - gettimeR4 <= 1200) {
+            while (millis() - gettimeR4 <= tuning::par[tuning::R4_ROTATE_MS]) {
               legs::point_rotate_right();
             }
             legs::walkspeed = 150;
@@ -1105,7 +1130,7 @@ void loop() {
               delay(250);
             }
             if (capitnaik == true) {
-              int comVal = radius(cposR[5], L);
+              int comVal = kompas(tuning::K_R4_KE_R5);
               //  int comVal = radius(60);
               if (comVal == 0) {
                 overallR4 = true;
@@ -1135,7 +1160,7 @@ void loop() {
             //            oled.drawStr(16, 51, "POSITIONING");
             //            oled.sendBuffer();
             if (right == false) {
-              if (TOFKanan < 285) {
+              if (TOFKanan < tuning::par[tuning::R5_KANAN]) {
                 legs::walkspeed = 150;
                 legs::shift6_left_fast();
               } else {
@@ -1143,12 +1168,12 @@ void loop() {
               }
             }
             if (right == true) {
-              if (TOFDepan > 100) {
+              if (TOFDepan > tuning::par[tuning::R5_DEPAN]) {
                 legs::forward6();
               } else {
                 legs::walkspeed = 150;
                 unsigned long t = millis();
-                while (millis() - t <= 4000) {
+                while (millis() - t <= tuning::par[tuning::R5_GESER_MS]) {
                   legs::shift_left_fast();
                 }
                 positioningR5 = true;
@@ -1159,7 +1184,7 @@ void loop() {
           if (positioningR5 == true && kompas5 == false && tembok5 == false) {
             Serial.println("cek kompas 5");
             legs::walkspeed = 180;
-            int comVal = radius(cposR[5], F);
+            int comVal = kompas(tuning::K_R5_LURUS);
             // int comVal = radius(25);
             if (comVal == -1) {
               legs::rotate_left_1cm();
@@ -1250,12 +1275,12 @@ void loop() {
             TOFDepan = TOF::getdepan();
             Serial.println("ruangan 6");
 
-            int comVal = radius(cposPuingR, F, 5);
+            int comVal = kompas(tuning::K_R5_PUING);
             if (comVal == 1) {
               legs::rotate_right_slow();
             } else if (comVal == -1) {
               legs::rotate_left_slow();
-            } else if (TOFDepan < 460) {
+            } else if (TOFDepan < tuning::par[tuning::R5_PUING_DEPAN]) {
               legs::backward();
             } else {
               overallR5 = true;
@@ -1278,7 +1303,7 @@ void loop() {
 
             // tahap 1: shift kiri sampai TOFKiri >= 235
             if (doneHuman6 == false && rotateH6 == false && camerastate[3] == false && human[3] == false && mundur6humanR6 == false && kompasBalik6 == false) {
-              if (TOFKanan > 380) {
+              if (TOFKanan > tuning::par[tuning::R6_KANAN]) {
                 rotateH6 = true;
               } else {
                 legs::walkspeed = 150;
@@ -1289,7 +1314,7 @@ void loop() {
             // tahap 2: benerin kompas ke cposhumanR[3], baru backward 2 detik, baru camerastate true
             if (doneHuman6 == false && rotateH6 == true && camerastate[3] == false && human[3] == false && mundur6humanR6 == false && kompasBalik6 == false) {
               Serial.println("prepare camera 6");
-              int comVal = radius(cposhumanR[3], F);
+              int comVal = kompas(tuning::K_R6_H3);
               if (comVal == 1) {
                 legs::rotate6_right();
               } else if (comVal == -1) {
@@ -1297,7 +1322,7 @@ void loop() {
               } else {
                 legs::walkspeed = 150;
                 unsigned long t = millis();
-                while (millis() - t <= 1000) {
+                while (millis() - t <= tuning::par[tuning::R6_MUNDUR_CAM_MS]) {
                   legs::backward6();
                 }
                 camerastate[3] = true;
@@ -1338,7 +1363,7 @@ void loop() {
                   timeCamXMinus1 = 0;
 
                   Serial.println("Get Human 3");
-                  gethuman6puing(3, cposhumanR[3]);
+                  gethuman6puing(3, kompasTarget(tuning::K_R6_AMBIL_H3));
                   if (human[3] == true) {
                       legs::walkspeed = 100;
                       unsigned long t = millis();
@@ -1355,7 +1380,7 @@ void loop() {
             if (ambilhuman4 == true && gantikorban4 == false && camerastate[4] == false && human[4] == false) {
               legs::walkspeed = 150;
               unsigned long t = millis();
-              while (millis() - t <= 4000) {
+              while (millis() - t <= tuning::par[tuning::R6_GESER_H4_MS]) {
                 legs::shift6_left_fast();
               }
               gantikorban4 = true;
@@ -1367,7 +1392,7 @@ void loop() {
 
             if (ambilhuman4 == true && gantikorban4 == true && camerastate[4] == false && human[4] == false) {
               Serial.println("prepare camera 6 (human 4)");
-              int comVal = radius(cposhumanR[3], L, 10);
+              int comVal = kompas(tuning::K_R6_H4);
               if (comVal == 1) {
                 legs::rotate6_right();
               } else if (comVal == -1) {
@@ -1375,7 +1400,7 @@ void loop() {
               } else {
                 legs::walkspeed = 150;
                 unsigned long t = millis();
-                while (millis() - t <= 2000) {
+                while (millis() - t <= tuning::par[tuning::R6_MUNDUR_CAM4_MS]) {
                   legs::backward6();
                 }
                 camerastate[4] = true;
@@ -1415,7 +1440,7 @@ void loop() {
                   timeCamXMinus1_H4 = 0;
 
                   Serial.println("Get Human 4");
-                  gethuman6puing(4, 135);
+                  gethuman6puing(4, kompasTarget(tuning::K_R6_AMBIL_H4));
                   if (human[4] == true) {
                       selesaiHuman6 = true;
                   }
@@ -1427,7 +1452,7 @@ void loop() {
             if (doneHuman6 == false && rotateH6 == true && selesaiHuman6 == true && mundur6humanR6 == false && kompasBalik6 == false) {
               legs::walkspeed = 100;
               unsigned long t = millis();
-              while (millis() - t <= 3000) {
+              while (millis() - t <= tuning::par[tuning::R6_MUNDUR_MS]) {
                 legs::backward6();
               }
               mundur6humanR6 = true;
@@ -1435,7 +1460,7 @@ void loop() {
 
             // tahap 5: rotate balik ke cposR[6], setelah pas lanjut normal lagi
             if (doneHuman6 == false && rotateH6 == true && selesaiHuman6 == true && mundur6humanR6 == true && kompasBalik6 == false) {
-              int comVal = radius(cposR[6], F, 8);
+              int comVal = kompas(tuning::K_R6_BALIK);
               if (comVal == 0) {
                 kompasBalik6 = true;
                 doneHuman6 = true;
@@ -1449,17 +1474,17 @@ void loop() {
             // tahap 6: lanjut wall following normal seperti semula
             if (doneHuman6 == true && rotateH6 == true && selesaiHuman6 == true && mundur6humanR6 == true && kompasBalik6 == true) {
               legs::walkspeed = 150;
-              int comVal = radius(cposR[6], F, 10);
+              int comVal = kompas(tuning::K_R6_WF);
               if (comVal == -1) {
                 legs::rotate_left_fast();
               } else if (comVal == 1) {
                 legs::rotate_right_fast();
-              } else if (TOFKiri > 220) {
+              } else if (TOFKiri > tuning::par[tuning::R6_KIRI_WF]) {
                 legs::shift6_left_high();
               } else {
                 legs::forward6_high();
               }
-              if (TOFDepan < 140) {
+              if (TOFDepan < tuning::par[tuning::R6_DEPAN_WF]) {
                 if (gettimeR6 == 0) {
                   gettimeR6 = millis();
                 }
@@ -1482,18 +1507,18 @@ void loop() {
             //            oled.drawStr(16, 51, "POSITIONING");
             //            oled.sendBuffer();
             if (front6 == false) {
-              if (TOFDepan < 140) {
+              if (TOFDepan < tuning::par[tuning::R6_DEPAN_MIN]) {
                 legs::backward6();
-              } else if (TOFDepan > 150) {
+              } else if (TOFDepan > tuning::par[tuning::R6_DEPAN_MAX]) {
                 legs::forward6();
               } else {
                 front6 = true;
               }
             }
             if (front6 == true) {
-              if (TOFKiri < 160) {
+              if (TOFKiri < tuning::par[tuning::R6_KIRI_MIN]) {
                 legs::shift6_right();
-              } else if (TOFKiri > 180) {
+              } else if (TOFKiri > tuning::par[tuning::R6_KIRI_MAX]) {
                 legs::shift6_left();
               } else {
                 positioningR6 = true;
@@ -1562,7 +1587,7 @@ void loop() {
             legs::walkspeed = 150;
 
             if (kompas7set == false) {
-              int comVal = radius(cposR[7], F, 2);
+              int comVal = kompas(tuning::K_R6_KE_R7);
               if (comVal == 0) {
                 kompas7set = true;
               } else if (comVal == 1) {
@@ -1574,9 +1599,9 @@ void loop() {
 
             if (kompas7set == true && mundur6 == false) {
               TOFDepan = TOF::getdepan();
-              if (TOFDepan < 400) {
+              if (TOFDepan < tuning::par[tuning::R6_R7_DEPAN_MIN]) {
                 legs::backward6();
-              } else if (TOFDepan > 460) {
+              } else if (TOFDepan > tuning::par[tuning::R6_R7_DEPAN_MAX]) {
                 legs::forward6();
               } else {
                 mundur6 = true;
@@ -1586,7 +1611,7 @@ void loop() {
             if (kompas7set == true && mundur6 == true) {
               legs::walkspeed = 150;
               unsigned long t = millis();
-              while (millis() - t <= 7000) {
+              while (millis() - t <= tuning::par[tuning::R6_R7_GESER_MS]) {
                 legs::shift6_right_high_fast();
               }
               overallR6 = true;
@@ -1623,7 +1648,7 @@ void loop() {
             bool sudahMinimalNaik = (millis() - waktuMulaiTangga >= 2000);
 
             // 1. CEK / TRIGGER KELUAR TANGGA, dengan minimal waktu + debounce
-            if (sudahMinimalNaik && TOFDepan > 350 && !faseKeluar) {
+            if (sudahMinimalNaik && TOFDepan > tuning::par[tuning::R7_KELUAR_DEPAN] && !faseKeluar) {
               if (timerCekKeluar == 0) {
                 timerCekKeluar = millis();
               }
@@ -1631,14 +1656,14 @@ void loop() {
                 faseKeluar = true;
                 timerKeluar = millis();
               }
-            } else if (TOFDepan <= 350) {
+            } else if (TOFDepan <= tuning::par[tuning::R7_KELUAR_DEPAN]) {
               timerCekKeluar = 0;
             }
 
             // 2. EKSEKUSI GERAKAN
             if (faseKeluar) {
               legs::shift6_right_fast();
-              if (millis() - timerKeluar >= 4000) {
+              if (millis() - timerKeluar >= tuning::par[tuning::R7_KELUAR_MS]) {
                 kiri = true;
                 gettimeR7 = millis();
                 faseKeluar = false;
@@ -1650,15 +1675,15 @@ void loop() {
               oled.drawStr(30, 51, "TANGGA");
               oled.sendBuffer();
               legs::walkspeed = 300;
-              int comVal = radius(cpostanggaR, R, 20);
+              int comVal = kompas(tuning::K_R7_TANGGA);
               if (comVal == 1) {
                 legs::rotate6_right_1cm();
               } else if (comVal == -1) {
                 legs::rotate6_left_1cm();
               } else {
-                if (TOFDepan <= 100) {
+                if (TOFDepan <= tuning::par[tuning::R7_DEPAN_DEKAT]) {
                   legs::backward6();
-                } else if (TOFDepan > 200) {
+                } else if (TOFDepan > tuning::par[tuning::R7_DEPAN_JAUH]) {
                   legs::rotate6_left_1cm();
                 } else {
                   legs::walkspeed = 150;
@@ -1683,7 +1708,7 @@ void loop() {
               // STEP 1: Cek & Eksekusi Kompas/Rotasi Dulu
               // ==========================================
               if (kompas8 == false) {
-                int comVal = radius(cpossafeR[4], R, 5);
+                int comVal = kompas(tuning::K_R7_TARUH);
                 if (comVal == 0) {
                   kompas8 = true; // Rotasi selesai, kunci kompas8
                 } else if (comVal == 1) {
@@ -1696,9 +1721,9 @@ void loop() {
               // STEP 2: Kompas Sudah Pas -> Koreksi TOF Depan
               // ==========================================
               else if (positioningR7akhir == false) {
-                if (TOFDepan < 230) {
+                if (TOFDepan < tuning::par[tuning::R7_DEPAN_MIN]) {
                   legs::backward();
-                } else if (TOFDepan > 240) {
+                } else if (TOFDepan > tuning::par[tuning::R7_DEPAN_MAX]) {
                   legs::forward();
                 } else {
                   positioningR7akhir = true;
@@ -1748,7 +1773,7 @@ void loop() {
             legs::walkspeed = 400;
             Serial.println("cek kompas 8");
 
-            int comVal = radius(cposhumanR[5]);
+            int comVal = kompas(tuning::K_R8_HUMAN);
             
             if (comVal == 0) {
               kompas8 = true;
@@ -1786,12 +1811,12 @@ void loop() {
             TOFKanan = TOF::getkanan();
             Serial.println("ruangan 9");
 
-            int comVal = radius(cposR[8], L);
+            int comVal = kompas(tuning::K_R8_KE_R9);
             if (comVal == 0) {
               if (front8 == false) {
-                if (TOFDepan < 100) {
+                if (TOFDepan < tuning::par[tuning::R8_DEPAN_MIN]) {
                   legs::backward6();
-                } else if (TOFDepan > 490) {
+                } else if (TOFDepan > tuning::par[tuning::R8_DEPAN_MAX]) {
                   legs::forward6();
                 } else {
                   front8 = true;
@@ -1817,7 +1842,7 @@ void loop() {
 
             unsigned long startTimeR9 = millis();
 
-            while (millis() - startTimeR9 < 7000) {
+            while (millis() - startTimeR9 < tuning::par[tuning::R9_GESER_MS]) {
               legs::shift6_left_bridge();
             }
 
@@ -1830,7 +1855,7 @@ void loop() {
             //            oled.drawStr(34, 27, "CHECK");
             //            oled.drawStr(32, 51, "COMPAS");
             //            oled.sendBuffer();
-            int comVal = radius(cposR[9]);
+            int comVal = kompas(tuning::K_R9_LURUS);
             if (comVal == 0) {
               kompas9 = true;
             } else if (comVal == 1) {
@@ -1851,18 +1876,18 @@ void loop() {
             //            oled.sendBuffer();
             legs::walkspeed = 200;
             if (left == false) {
-              if (TOFKiri < 175) {
+              if (TOFKiri < tuning::par[tuning::R9_KIRI_MIN]) {
                 legs::shift_right_1cm();
-              } else if (TOFKiri > 195) {
+              } else if (TOFKiri > tuning::par[tuning::R9_KIRI_MAX]) {
                 legs::shift_left_1cm();
               } else {
                 left = true;
               }
             }
             if (left == true) {
-              if (TOFDepan < 250) {
+              if (TOFDepan < tuning::par[tuning::R9_DEPAN_MIN]) {
                 legs::backward();
-              } else if (TOFDepan > 270) {
+              } else if (TOFDepan > tuning::par[tuning::R9_DEPAN_MAX]) {
                 legs::forward_1cm();
               } else {
                 positioningR9 = true;
