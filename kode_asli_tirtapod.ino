@@ -129,18 +129,18 @@ unsigned long int camtime = 0;
 
 //// Compass Parameter
 //// untuk arena kanan
-int cposhomeR = 273;
-int cpostanggaR = 105;
-int cposPuingR = 300;
+int cposhomeR = 278;
+int cpostanggaR = 112;
+int cposPuingR = 309;
 //////////////| HOME |////
 
-int cposR[] = { 0, 0, 275, 180, 267, 315, 21, 118, 16, 6 };
+int cposR[] = { 0, 0, 270, 182, 260, 290, 32, 122, 18, 13 };
 ////////////////////| R2 | R3 | R4 | R5 | R6 | R7 | R8 | R9 |///////Ruangan
 
-int cposhumanR[] = { 0, 272, 28, 295, 349, 329 };
+int cposhumanR[] = { 0, 275, 45, 310, 349, 352 };
 //////////////////////| H1 | H2 | H3 | H4 | H5 |///////Human
 
-int cpossafeR[] = { 0, 119, 222, 133, 21, 102 };
+int cpossafeR[] = { 0, 119, 222, 133, 20, 102 };
 /////////////////////| S1 | S2 | S3 | S4 | S5 |///////SafeZone
 
 
@@ -178,6 +178,8 @@ bool overallR2 = false;
 bool tembok2kiri = false;
 bool positioningR2 = false;
 unsigned long int gettimeR2 = 0;
+unsigned long int mulaiShiftR2 = 0;
+unsigned long int timerDepanJauhR2 = 0;
 
 // Logic For R3
 bool overallR3 = false;
@@ -421,10 +423,11 @@ int radius(int targetHeading, mode type = F, int coffset = 15) {
     int clockwiseDistance = (targetHeading - heading + 360) % 360;
     int counterClockwiseDistance = (heading - targetHeading + 360) % 360;
 
+    // Kompas robot ini terbalik: putar KIRI = heading NAIK
     if (clockwiseDistance < counterClockwiseDistance) {
-      return 1;
+      return -1;   // heading perlu naik → putar kiri
     } else {
-      return -1;
+      return 1;    // heading perlu turun → putar kanan
     }
   }
 }
@@ -668,24 +671,24 @@ void loop() {
         // Ruangan 2
         if (overallR1 == true && overallR2 == false) {
           if (tembok2kiri == false && positioningR2 == false) {
-            TOFDepan = TOF::getdepan();
             legs::walkspeed = 100;
-            //            oled.clearBuffer();
-            //            oled.setFont(u8g2_font_fub11_tr);
-            //            oled.drawStr(34, 27, "SHIFT");
-            //            oled.drawStr(34, 51, "RIGHT");
-            //            oled.sendBuffer();
-            if (TOFDepan > 700) {
-              tembok2kiri = true;
+            if (mulaiShiftR2 == 0) mulaiShiftR2 = millis();
+
+            TOFDepan = TOF::getdepan();          // baca di awal supaya selalu tampil
+            int comVal = radius(cposR[2], F, 25);
+
+            if (comVal == 1) {
+              legs::rotate6_right_high_1cm();
+              timerDepanJauhR2 = 0;
+            } else if (comVal == -1) {
+              
+              legs::rotate6_left_high_1cm();
+              timerDepanJauhR2 = 0;
             } else {
-              int comVal = radius(cposR[2], F);
-              Serial.println(compass::heading());
-              if (comVal == 0) {
-                legs::shift6_right_high_fast();
-              } else if (comVal == 1) {
-                legs::rotate6_right_high_1cm();
+              if (TOFDepan > 700) {
+                tembok2kiri = true;      // depan lapang → lanjut rotate ke R3
               } else {
-                legs::rotate6_left_high_1cm();
+                legs::shift6_right_high_fast();
               }
             }
           }
@@ -706,6 +709,7 @@ void loop() {
               oledPrint("3", 50);
               oled.sendBuffer();
             } else {
+
               legs::rotate6_right();
             }
 
@@ -765,6 +769,7 @@ void loop() {
             if (comVal == 0) {
               kompas3 = true;
             } else if (comVal == 1) {
+            
               legs::rotate6_right_1cm();
             } else {
               legs::rotate6_left_1cm();
@@ -3283,6 +3288,50 @@ void oledPrintVal(float val, int y) {
   int xPosVal = (128 - oled.getStrWidth(valChar)) / 2;
   oled.setCursor(xPosVal, y);
   oled.print(valChar);
+}
+
+// ===== DEBUG =====
+unsigned long dbgLast = 0;
+
+void dbg(const char* state, int comVal, int depan) {
+  if (millis() - dbgLast < 150) return;   // biar tidak bikin loop lambat
+  dbgLast = millis();
+  int hd = compass::heading();
+
+  Serial.println(String() + "[" + state + "] hd=" + hd + " cv=" + comVal +
+                 " dpn=" + depan + " kanan=" + TOF::getkanan() +
+                 " t2k=" + tembok2kiri + " pos2=" + positioningR2 +
+                 " oR2=" + overallR2);
+
+  oled.clearBuffer();
+  oled.setFont(u8g2_font_6x10_tr);
+  oled.setCursor(0, 10); oled.print(state);
+  oled.setCursor(0, 24); oled.print("HD:"); oled.print(hd);
+  oled.print("  CV:"); oled.print(comVal);
+  oled.setCursor(0, 38); oled.print("DEPAN:"); oled.print(depan);
+  oled.setCursor(0, 52); oled.print("t2k:"); oled.print(tembok2kiri);
+  oled.print(" p2:"); oled.print(positioningR2);
+  oled.print(" o2:"); oled.print(overallR2);
+  oled.sendBuffer();
+}
+
+// "Breakpoint": robot berhenti, tampilkan alasan, lanjut kalau button0 ditekan
+void berhenti(const char* alasan, int nilai) {
+  legs::point_ready();
+  int hd = compass::heading();
+  Serial.println(String() + "!!! BREAK: " + alasan + " nilai=" + nilai + " hd=" + hd);
+  oled.clearBuffer();
+  oled.setFont(u8g2_font_6x10_tr);
+  oled.setCursor(0, 12); oled.print("BREAK:");
+  oled.setCursor(0, 26); oled.print(alasan);
+  oled.setCursor(0, 40); oled.print("nilai: "); oled.print(nilai);
+  oled.setCursor(0, 54); oled.print("hd: "); oled.print(hd);
+  oled.sendBuffer();
+  while (digitalRead(button0) == HIGH) {          // tunggu tombol ditekan
+    if (digitalRead(button1) == LOW) rp2040.reboot();
+    delay(10);
+  }
+  while (digitalRead(button0) == LOW) delay(10);  // tunggu tombol dilepas
 }
 
 void WallFollowingRight6() {
