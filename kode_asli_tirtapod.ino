@@ -204,6 +204,7 @@ bool human2aman = false;
 bool positioningR4 = false;
 bool front4 = false;
 bool camerastate2 = false;
+bool koreksiAwalR4 = false;  // Flag koreksi TOF awal Ruangan 4
 
 //Logic for R5
 bool overallR5 = false;
@@ -559,7 +560,7 @@ void loop() {
     //Kondisi Kanan =======
     if (isRight == LOW) {
       if (homestate == false && overallhome == false) {
-        legs::walkspeed = 100;
+        legs::walkspeed = 150;
         int comVal = kompas(tuning::K_HOME);
         if (comVal == 0) {
           //          Serial.println("Forward Low");
@@ -1016,17 +1017,36 @@ void loop() {
               legs::rotate6_left();
             }
           }
-          if (tembok4 == true && tembok4kanan == true && human[2] == false && camerastate[2] == true && kompas4 == false && positioningR4 == false && human2aman == false) {
-            Serial.println("Get Human");
-            //            oled.clearBuffer();
-            //            oled.setFont(u8g2_font_fub14_tr);
-            //            oled.drawStr(38, 27, "GET");
-            //            oled.drawStr(32, 51, "HUMAN");
-            //            oled.sendBuffer();
-            //legs::walkspeed = 200;
-            gethuman2(2);
-            capitnaik = true;
-            gettimeR4 = millis();
+          if (tembok4 == true && tembok4kanan == true &&
+              human[2] == false && camerastate[2] == true &&
+              kompas4 == false && positioningR4 == false &&
+              human2aman == false) {
+
+            TOFDepan = TOF::getdepan();
+
+            if (TOFDepan < tuning::par[tuning::R4_DEPAN_MIN]) {
+
+              Serial.println("Mundur sebelum mengambil korban");
+
+              gettimeR4 = millis();
+
+              while (millis() - gettimeR4 <= tuning::par[tuning::R4_MUNDUR_MS]) {
+                legs::walkspeed = 150;
+                legs::backward6();
+
+                oled.clearBuffer();
+                oledPrint("Get", 30);
+                oledPrint("Human", 50);
+                oled.sendBuffer();
+              }
+
+            } else {
+              Serial.println("Posisi aman, mulai mengambil korban");
+
+              gethuman2(2);
+              capitnaik = true;
+              gettimeR4 = millis();
+            }
           }
           if (tembok4 == true && tembok4kanan == true && human[2] == true && camerastate[2] == true && kompas4 == false && positioningR4 == false && human2aman == false) {
             Serial.println("Cek Kompas 4");
@@ -1275,19 +1295,21 @@ void loop() {
             TOFDepan = TOF::getdepan();
             Serial.println("ruangan 6");
 
-            int comVal = kompas(tuning::K_R5_PUING);
-            if (comVal == 1) {
-              legs::rotate_right_slow();
-            } else if (comVal == -1) {
-              legs::rotate_left_slow();
-            } else if (TOFDepan < tuning::par[tuning::R5_PUING_DEPAN]) {
+            if (TOFDepan < tuning::par[tuning::R5_PUING_DEPAN]) {
               legs::backward();
             } else {
-              overallR5 = true;
-              oled.clearBuffer();
-              oledPrint("Ruangan", 30);
-              oledPrint("6", 50);
-              oled.sendBuffer();
+              int comVal = kompas(tuning::K_R5_PUING);
+              if (comVal == 1) {
+                legs::rotate_right_slow();
+              } else if (comVal == -1) {
+                legs::rotate_left_slow();
+              } else {
+                overallR5 = true;
+                oled.clearBuffer();
+                oledPrint("Ruangan", 30);
+                oledPrint("6", 50);
+                oled.sendBuffer();
+              }
             }
           }
         }
@@ -1744,17 +1766,13 @@ void loop() {
                   legs::CapitTurun2();
                   t = millis();
                   while (millis() - t <= 1000) {
-                    legs::walkspeed = 200;
+                    legs::walkspeed = 130;
                     legs::backward();
                   }
                   legs::capitnaik(1);
                   delay(200);
                   legs::capitbuka();
-                  t = millis();
-                  while (millis() - t <= 3000) {
-                    legs::walkspeed = 200;
-                    legs::rotate6_right();
-                  }
+                  
                   overallR7 = true;
 
                   oled.clearBuffer();
@@ -1778,7 +1796,13 @@ void loop() {
             if (comVal == 0) {
               kompas8 = true;
               front8 = false;
+              unsigned long t = millis();
+                  while (millis() - t <= 2000) {
+                    legs::walkspeed = 200; // Pelankan gerakan agar robot stabil
+                    legs::shift_right();
+                  }
               legs::walkspeed = 150; // Pelankan gerakan agar robot stabil
+
               delay(500);            // Beri jeda agar pembacaan kamera stabil
 
               // CEK KORBAN ASLI
@@ -1800,7 +1824,7 @@ void loop() {
           // 2. Ambil Human 5
           else if (kompas8 == true && human[5] == false) {
             Serial.println("Get Human");
-            gethuman4(5);
+            gethuman2(5);
             capitnaik = true;
           }
 
@@ -1810,15 +1834,23 @@ void loop() {
             TOFDepan = TOF::getdepan();
             TOFKanan = TOF::getkanan();
             Serial.println("ruangan 9");
+            // unsigned long t = millis();
+            //       while (millis() - t <= 700) {
+            //         legs::walkspeed = 150; // Pelankan gerakan agar robot stabil
+            //         legs::backward();
+            //       }
 
             int comVal = kompas(tuning::K_R8_KE_R9);
             if (comVal == 0) {
               if (front8 == false) {
                 if (TOFDepan < tuning::par[tuning::R8_DEPAN_MIN]) {
+                  legs::walkspeed = 130;
                   legs::backward6();
-                } else if (TOFDepan > tuning::par[tuning::R8_DEPAN_MAX]) {
-                  legs::forward6();
-                } else {
+                // } else if (TOFDepan > tuning::par[tuning::R8_DEPAN_MAX]) {
+                //   legs::forward6();
+                // } 
+                }
+                else {
                   front8 = true;
                 }
               }
