@@ -204,6 +204,7 @@ bool human2aman = false;
 bool positioningR4 = false;
 bool front4 = false;
 bool camerastate2 = false;
+bool koreksiAwalR4 = false;  // Flag koreksi TOF awal Ruangan 4
 
 //Logic for R5
 bool overallR5 = false;
@@ -232,6 +233,42 @@ bool ambilhuman4 = false;
 bool gantikorban4 = false;
 bool selesaiHuman6 = false;
 unsigned long int gettimeR6 = 0;
+
+// ===== Ruangan 6 alur baru (arena kanan): nomor step =====
+enum StepR6 {
+  S6_SHIFT_AWAL,      // 0  geser kiri awal
+  S6_HADAP_H3,        // 1  hadap korban 3
+  S6_AMBIL_H3,        // 2  ambil korban 3
+  S6_T3_MUNDUR,       // 3  mundur bawa korban 3
+  S6_T3_ARAH1,        // 4  arah taruh (42)
+  S6_T3_DEPAN,        // 5  depan taruh (310)
+  S6_T3_ARAH2,        // 6  arah taruh (35)
+  S6_T3_KIRI,         // 7  kiri taruh (150)
+  S6_T3_TARUH,        // 8  taruh korban 3
+  S6_T3_ARAH2_ULANG,  // 9  arah 35 lagi + mundur
+  S6_GANTI_H4,        // 10 geser ke korban 4 (kalau korban 3 skip)
+  S6_HADAP_H4,        // 11 hadap korban 4
+  S6_AMBIL_H4,        // 12 ambil korban 4
+  S6_H4_MUNDUR,       // 13 mundur bawa korban 4
+  S6_H4_ARAH1,        // 14 arah (42)
+  S6_H4_DEPAN,        // 15 depan (310)
+  S6_R7_ARAH,         // 16 arah ke R7
+  S6_R7_DEPAN,        // 17 mundur sampai depan R7
+  S6_R7_GESER,        // 18 geser kanan ke R7
+  S6_JUMLAH
+};
+const char* namaStepR6[S6_JUMLAH] = {
+  "geser kiri awal", "hadap korban 3", "ambil korban 3", "mundur bawa K3",
+  "arah taruh 1", "depan taruh", "arah taruh 2", "kiri taruh", "taruh korban 3",
+  "arah 2 + mundur", "geser ke K4", "hadap korban 4", "ambil korban 4",
+  "mundur bawa K4", "arah bawa K4", "depan bawa K4", "arah ke R7",
+  "depan ke R7", "geser ke R7"
+};
+int stepR6 = S6_SHIFT_AWAL;
+unsigned long timerCamR6 = 0;
+
+// jenis gerakan untuk jalanSelama()
+enum { JALAN_BACKWARD6, JALAN_SHIFT6_LEFT_FAST, JALAN_SHIFT6_RIGHT_HIGH_FAST };
 
 //Logic for R7
 bool overallR7 = false;
@@ -451,6 +488,41 @@ int kompasTarget(int id) {
   return tuning::kp[id].target;
 }
 
+// Putar ke titik kompas. true kalau sudah pas (comVal 0).
+bool putarKompas(int id) {
+  int c = kompas(id);
+  if (c == 0) return true;
+  if (c == 1) legs::rotate6_right();
+  else legs::rotate6_left();
+  return false;
+}
+
+// Jalankan satu jenis gerakan selama ms milidetik (blocking)
+void jalanSelama(int jenis, unsigned long ms, int speed) {
+  legs::walkspeed = speed;
+  unsigned long t = millis();
+  while (millis() - t <= ms) {
+    if (jenis == JALAN_BACKWARD6) legs::backward6();
+    else if (jenis == JALAN_SHIFT6_LEFT_FAST) legs::shift6_left_fast();
+    else if (jenis == JALAN_SHIFT6_RIGHT_HIGH_FAST) legs::shift6_right_high_fast();
+  }
+}
+
+// Pindah step R6 + tampilkan di OLED & Serial
+void gantiStepR6(int s) {
+  stepR6 = s;
+  const char* nama = (s >= 0 && s < S6_JUMLAH) ? namaStepR6[s] : "?";
+  Serial.println(String() + ">> R6 step " + s + ": " + nama);
+  oled.clearBuffer();
+  oled.setFont(u8g2_font_fub14_tr);
+  oledPrint((String("R6 step ") + s).c_str(), 25);
+  oled.setFont(u8g2_font_6x10_tr);
+  int w = oled.getStrWidth(nama);
+  oled.setCursor((128 - w) / 2, 50);
+  oled.print(nama);
+  oled.sendBuffer();
+}
+
 //== END GUUNSI KOMPASSSSSSSSSSSSS
 
 void setup1() {
@@ -559,7 +631,7 @@ void loop() {
     //Kondisi Kanan =======
     if (isRight == LOW) {
       if (homestate == false && overallhome == false) {
-        legs::walkspeed = 100;
+        legs::walkspeed = 150;
         int comVal = kompas(tuning::K_HOME);
         if (comVal == 0) {
           //          Serial.println("Forward Low");
@@ -1016,17 +1088,36 @@ void loop() {
               legs::rotate6_left();
             }
           }
-          if (tembok4 == true && tembok4kanan == true && human[2] == false && camerastate[2] == true && kompas4 == false && positioningR4 == false && human2aman == false) {
-            Serial.println("Get Human");
-            //            oled.clearBuffer();
-            //            oled.setFont(u8g2_font_fub14_tr);
-            //            oled.drawStr(38, 27, "GET");
-            //            oled.drawStr(32, 51, "HUMAN");
-            //            oled.sendBuffer();
-            //legs::walkspeed = 200;
-            gethuman2(2);
-            capitnaik = true;
-            gettimeR4 = millis();
+          if (tembok4 == true && tembok4kanan == true &&
+              human[2] == false && camerastate[2] == true &&
+              kompas4 == false && positioningR4 == false &&
+              human2aman == false) {
+
+            TOFDepan = TOF::getdepan();
+
+            if (TOFDepan < tuning::par[tuning::R4_DEPAN_MIN]) {
+
+              Serial.println("Mundur sebelum mengambil korban");
+
+              gettimeR4 = millis();
+
+              while (millis() - gettimeR4 <= tuning::par[tuning::R4_MUNDUR_MS]) {
+                legs::walkspeed = 150;
+                legs::backward6();
+
+                oled.clearBuffer();
+                oledPrint("Get", 30);
+                oledPrint("Human", 50);
+                oled.sendBuffer();
+              }
+
+            } else {
+              Serial.println("Posisi aman, mulai mengambil korban");
+
+              gethuman2(2);
+              capitnaik = true;
+              gettimeR4 = millis();
+            }
           }
           if (tembok4 == true && tembok4kanan == true && human[2] == true && camerastate[2] == true && kompas4 == false && positioningR4 == false && human2aman == false) {
             Serial.println("Cek Kompas 4");
@@ -1275,349 +1366,255 @@ void loop() {
             TOFDepan = TOF::getdepan();
             Serial.println("ruangan 6");
 
-            int comVal = kompas(tuning::K_R5_PUING);
-            if (comVal == 1) {
-              legs::rotate_right_slow();
-            } else if (comVal == -1) {
-              legs::rotate_left_slow();
-            } else if (TOFDepan < tuning::par[tuning::R5_PUING_DEPAN]) {
+            if (TOFDepan < tuning::par[tuning::R5_PUING_DEPAN]) {
               legs::backward();
             } else {
-              overallR5 = true;
-              oled.clearBuffer();
-              oledPrint("Ruangan", 30);
-              oledPrint("6", 50);
-              oled.sendBuffer();
+              int comVal = kompas(tuning::K_R5_PUING);
+              if (comVal == 1) {
+                legs::rotate_right_slow();
+              } else if (comVal == -1) {
+                legs::rotate_left_slow();
+              } else {
+                overallR5 = true;
+                oled.clearBuffer();
+                oledPrint("Ruangan", 30);
+                oledPrint("6", 50);
+                oled.sendBuffer();
+              }
             }
           }
         }
 
-        // Ruangan 6
+        // Ruangan 6 (ALUR BARU)
+        // ambil korban 3 -> taruh korban 3 -> ambil korban 4 -> bawa ke R7
+        // Step sekarang tampil di OLED & Serial. Lihat daftar step di S6_... (atas file).
         if (overallR5 == true && overallR6 == false) {
+          legs::walkspeed = 150;
 
-          if (wallfollowingR6 == false && positioningR6 == false && tembok6kanan == false) {
-            TOFKanan = TOF::getkanan();
-            TOFDepan = TOF::getdepan();
-            Serial.println("cek tembok 6 depan");
-            legs::walkspeed = 150;
+          // khusus test: kalau start dari room 6, boleh mulai dari step tertentu (r6_step_awal)
+          static bool r6Mulai = false;
+          if (r6Mulai == false) {
+            r6Mulai = true;
+            if (TEST_START_ROOM == 6) stepR6 = tuning::par[tuning::R6_STEP_AWAL];
+            gantiStepR6(stepR6);
+          }
 
-            // tahap 1: shift kiri sampai TOFKiri >= 235
-            if (doneHuman6 == false && rotateH6 == false && camerastate[3] == false && human[3] == false && mundur6humanR6 == false && kompasBalik6 == false) {
-              if (TOFKanan > tuning::par[tuning::R6_KANAN]) {
-                rotateH6 = true;
-              } else {
-                legs::walkspeed = 150;
-                legs::shift6_left_fast();
+          switch (stepR6) {
+
+            // 0. geser kiri sampai TOF kanan > r6_kanan
+            case S6_SHIFT_AWAL: {
+              unsigned long t = millis();
+              while (millis() - t <= 3000) {
+                legs::shift6_left_high_fast();
               }
+              gantiStepR6(S6_HADAP_H3);
+              // TOFKanan = TOF::getkanan();
+              // ...
+              break;
             }
 
-            // tahap 2: benerin kompas ke cposhumanR[3], baru backward 2 detik, baru camerastate true
-            if (doneHuman6 == false && rotateH6 == true && camerastate[3] == false && human[3] == false && mundur6humanR6 == false && kompasBalik6 == false) {
-              Serial.println("prepare camera 6");
-              int comVal = kompas(tuning::K_R6_H3);
-              if (comVal == 1) {
-                legs::rotate6_right();
-              } else if (comVal == -1) {
-                legs::rotate6_left();
-              } else {
-                legs::walkspeed = 150;
-                unsigned long t = millis();
-                while (millis() - t <= tuning::par[tuning::R6_MUNDUR_CAM_MS]) {
-                  legs::backward6();
-                }
+            // 1. hadap korban 3 (r6_k_h3), lalu mundur sebentar untuk kamera
+            case S6_HADAP_H3: {
+              if (putarKompas(tuning::K_R6_H3)) {
+                jalanSelama(JALAN_BACKWARD6, tuning::par[tuning::R6_MUNDUR_CAM_MS], 150);
                 camerastate[3] = true;
-                oled.clearBuffer();
-                oledPrint("Get", 30);
-                oledPrint("Human", 50);
-                oled.sendBuffer();
+                gantiStepR6(S6_AMBIL_H3);
               }
+              break;
             }
 
-            // tahap 3: ambil korban 3, atau skip kalau ternyata cuma dummy
-            if (doneHuman6 == false && rotateH6 == true && camerastate[3] == true && human[3] == false && mundur6humanR6 == false && kompasBalik6 == false) {
-              
-              // Variabel lokal static (hanya dibaca & disimpan di dalam blok ini)
-              static unsigned long timeCamXMinus1 = 0;
-
+            // 2. ambil korban 3 (skip kalau 2 detik tidak terlihat kamera)
+            case S6_AMBIL_H3: {
               if (cam::camx == -1) {
-                  // Catat waktu awal saat camx pertama kali bernilai -1
-                  if (timeCamXMinus1 == 0) {
-                      timeCamXMinus1 = millis();
-                  }
-
-                  // Cek apakah sudah 2000 ms (2 detik) berlalu
-                  if (millis() - timeCamXMinus1 >= 2000) {
-                      Serial.println("Human 3 Tidak Terdeteksi selama 2 detik! Skip...");
-                      human[3] = true;
-                      ambilhuman4 = true;
-                      oled.clearBuffer();
-                      oledPrint("PASS", 30);
-                      oledPrint("HUMAN 3", 50);
-                      oled.sendBuffer();
-
-                      // Reset timer
-                      timeCamXMinus1 = 0;
-                  }
-              } else {
-                  // Reset timer jika objek terdeteksi kembali sebelum 2 detik
-                  timeCamXMinus1 = 0;
-
-                  Serial.println("Get Human 3");
-                  gethuman6puing(3, kompasTarget(tuning::K_R6_AMBIL_H3));
-                  if (human[3] == true) {
-                      legs::walkspeed = 100;
-                      unsigned long t = millis();
-                      while (millis() - t <= 5000) {
-                          legs::backward6();
-                      }
-                      legs::capitbuka();
-                      ambilhuman4 = true;
-                  }
-              }
-          }
-
-            // KONDISI GANTI HUMAN 4
-            if (ambilhuman4 == true && gantikorban4 == false && camerastate[4] == false && human[4] == false) {
-              legs::walkspeed = 150;
-              unsigned long t = millis();
-              while (millis() - t <= tuning::par[tuning::R6_GESER_H4_MS]) {
-                legs::shift6_left_fast();
-              }
-              gantikorban4 = true;
-              oled.clearBuffer();
-              oledPrint("GANTI", 30);
-              oledPrint("KORBAN", 50);
-              oled.sendBuffer();
-            }
-
-            if (ambilhuman4 == true && gantikorban4 == true && camerastate[4] == false && human[4] == false) {
-              Serial.println("prepare camera 6 (human 4)");
-              int comVal = kompas(tuning::K_R6_H4);
-              if (comVal == 1) {
-                legs::rotate6_right();
-              } else if (comVal == -1) {
-                legs::rotate6_left();
-              } else {
-                legs::walkspeed = 150;
-                unsigned long t = millis();
-                while (millis() - t <= tuning::par[tuning::R6_MUNDUR_CAM4_MS]) {
-                  legs::backward6();
+                if (timerCamR6 == 0) timerCamR6 = millis();
+                if (millis() - timerCamR6 >= 2000) {
+                  Serial.println("Human 3 tidak terdeteksi 2 detik -> skip, langsung ke korban 4");
+                  human[3] = true;
+                  timerCamR6 = 0;
+                  gantiStepR6(S6_GANTI_H4);
                 }
-                camerastate[4] = true;
-                oled.clearBuffer();
-                oledPrint("Get", 30);
-                oledPrint("Human", 50);
-                oled.sendBuffer();
-              }
-            }
-
-            if (ambilhuman4 == true && gantikorban4 == true && camerastate[4] == true && human[4] == false) {
-    
-              // Variabel lokal static untuk mencatat waktu (tidak di tingkat global)
-              static unsigned long timeCamXMinus1_H4 = 0;
-
-              if (cam::camx == -1) {
-                  // Catat waktu awal saat camx pertama kali bernilai -1
-                  if (timeCamXMinus1_H4 == 0) {
-                      timeCamXMinus1_H4 = millis();
-                  }
-
-                  // Cek apakah sudah 2000 ms (2 detik) berlalu berturut-turut
-                  if (millis() - timeCamXMinus1_H4 >= 2000) {
-                      Serial.println("Human 4 Tidak Terdeteksi / Sudah Diambil Musuh! Skip...");
-                      human[4] = true;
-                      selesaiHuman6 = true;
-                      oled.clearBuffer();
-                      oledPrint("PASS", 30);
-                      oledPrint("HUMAN 4", 50);
-                      oled.sendBuffer();
-
-                      // Reset timer
-                      timeCamXMinus1_H4 = 0;
-                  }
               } else {
-                  // Reset timer jika objek terdeteksi kembali sebelum 2 detik
-                  timeCamXMinus1_H4 = 0;
-
-                  Serial.println("Get Human 4");
-                  gethuman6puing(4, kompasTarget(tuning::K_R6_AMBIL_H4));
-                  if (human[4] == true) {
-                      selesaiHuman6 = true;
-                  }
+                timerCamR6 = 0;
+                gethuman6puing(3, kompasTarget(tuning::K_R6_AMBIL_H3));
+                if (human[3] == true) {
+                  gantiStepR6(S6_T3_MUNDUR);
+                }
               }
+              break;
             }
-            // END OF GANTI HUMAN 4
 
-            // tahap 4: mundur 2 detik
-            if (doneHuman6 == false && rotateH6 == true && selesaiHuman6 == true && mundur6humanR6 == false && kompasBalik6 == false) {
-              legs::walkspeed = 100;
-              unsigned long t = millis();
-              while (millis() - t <= tuning::par[tuning::R6_MUNDUR_MS]) {
+            // 3. mundur bawa korban 3 (capit TIDAK dibuka)
+            case S6_T3_MUNDUR: {
+              jalanSelama(JALAN_BACKWARD6, tuning::par[tuning::R6_MUNDUR_H3_MS], 100);
+              gantiStepR6(S6_T3_ARAH1);
+              break;
+            }
+
+            // 4. putar ke arah tempat taruh (r6_k_taruh_arah1, default 42)
+            case S6_T3_ARAH1: {
+              if (putarKompas(tuning::K_R6_TARUH_ARAH1)) gantiStepR6(S6_T3_DEPAN);
+              break;
+            }
+
+            // 5. maju/mundur sampai TOF depan di r6_taruh_depan_min..max
+            case S6_T3_DEPAN: {
+              TOFDepan = TOF::getdepan();
+              if (TOFDepan < tuning::par[tuning::R6_TARUH_DEPAN_MIN]) {
                 legs::backward6();
-              }
-              mundur6humanR6 = true;
-            }
-
-            // tahap 5: rotate balik ke cposR[6], setelah pas lanjut normal lagi
-            if (doneHuman6 == false && rotateH6 == true && selesaiHuman6 == true && mundur6humanR6 == true && kompasBalik6 == false) {
-              int comVal = kompas(tuning::K_R6_BALIK);
-              if (comVal == 0) {
-                kompasBalik6 = true;
-                doneHuman6 = true;
-              } else if (comVal == 1) {
-                legs::rotate_right();
-              } else {
-                legs::rotate_left();
-              }
-            }
-
-            // tahap 6: lanjut wall following normal seperti semula
-            if (doneHuman6 == true && rotateH6 == true && selesaiHuman6 == true && mundur6humanR6 == true && kompasBalik6 == true) {
-              legs::walkspeed = 150;
-              int comVal = kompas(tuning::K_R6_WF);
-              if (comVal == -1) {
-                legs::rotate_left_fast();
-              } else if (comVal == 1) {
-                legs::rotate_right_fast();
-              } else if (TOFKiri > tuning::par[tuning::R6_KIRI_WF]) {
-                legs::shift6_left_high();
-              } else {
-                legs::forward6_high();
-              }
-              if (TOFDepan < tuning::par[tuning::R6_DEPAN_WF]) {
-                if (gettimeR6 == 0) {
-                  gettimeR6 = millis();
-                }
-                if (millis() - gettimeR6 >= 1000) {
-                  wallfollowingR6 = true;
-                }
-              } else {
-                gettimeR6 = 0;
-              }
-            }
-          }
-            
-          if (wallfollowingR6 == true && positioningR6 == false && tembok6kanan == false) {
-            TOFDepan = TOF::getdepan();
-            TOFKiri = TOF::getkiri();
-            Serial.println("cek positioning 6");
-            //            oled.clearBuffer();
-            //            oled.setFont(u8g2_font_fub14_tr);
-            //            oled.drawStr(34, 27, "CHECK");
-            //            oled.drawStr(16, 51, "POSITIONING");
-            //            oled.sendBuffer();
-            if (front6 == false) {
-              if (TOFDepan < tuning::par[tuning::R6_DEPAN_MIN]) {
-                legs::backward6();
-              } else if (TOFDepan > tuning::par[tuning::R6_DEPAN_MAX]) {
+              } else if (TOFDepan > tuning::par[tuning::R6_TARUH_DEPAN_MAX]) {
                 legs::forward6();
               } else {
-                front6 = true;
+                gantiStepR6(S6_T3_ARAH2);
               }
+              break;
             }
-            if (front6 == true) {
-              if (TOFKiri < tuning::par[tuning::R6_KIRI_MIN]) {
+
+            // 6. positioning ulang kompas (r6_k_taruh_arah2, default 35)
+            case S6_T3_ARAH2: {
+              if (putarKompas(tuning::K_R6_TARUH_ARAH2)) gantiStepR6(S6_T3_KIRI);
+              break;
+            }
+
+            // 7. geser sampai TOF kiri di r6_taruh_kiri_min..max
+            case S6_T3_KIRI: {
+              TOFKiri = TOF::getkiri();
+              if (TOFKiri < tuning::par[tuning::R6_TARUH_KIRI_MIN]) {
                 legs::shift6_right();
-              } else if (TOFKiri > tuning::par[tuning::R6_KIRI_MAX]) {
+              } else if (TOFKiri > tuning::par[tuning::R6_TARUH_KIRI_MAX]) {
                 legs::shift6_left();
               } else {
-                positioningR6 = true;
+                gantiStepR6(S6_T3_TARUH);
               }
+              break;
             }
-          }
 
-          if (wallfollowingR6 == true && positioningR6 == true && tembok6kanan == false) {
-            legs::walkspeed = 150;
-            Serial.println("sapu ruangan 6");
-            oled.clearBuffer();
-            oled.setFont(u8g2_font_fub14_tr);
-            oled.drawStr(34, 27, "SAPU");
-            oled.drawStr(30, 51, "RUANGAN 6");
-            oled.sendBuffer();
-            // unsigned long t;
+            // 8. taruh korban 3 (seperti R3, tapi pakai point_rotate_left), lalu mundur
+            case S6_T3_TARUH: {
+              legs::walkspeed = 150;
+              unsigned long t = millis();
+              while (millis() - t <= tuning::par[tuning::R6_TARUH_ROTATE_MS]) {
+                legs::point_rotate_left();
+              }
+              legs::walkspeed = 200;
+              legs::CapitJepit();
+              delay(500);
+              legs::CapitTurun();
+              delay(500);
+              legs::capitnaik(1)
+              jalanSelama(JALAN_BACKWARD6, tuning::par[tuning::R6_TARUH_MUNDUR_MS], 150);
+              gantiStepR6(S6_T3_ARAH2_ULANG);
+              break;
+            }
 
-            // t = millis();
-            // while (millis() - t <= 4000) {
-            //   legs::sapu();
-            // }
+            // 9. positioning lagi ke r6_k_taruh_arah2, lalu backward6 r6_taruh_mundur2_ms
+            case S6_T3_ARAH2_ULANG: {
+              if (putarKompas(tuning::K_R6_TARUH_ARAH2)) {
+                jalanSelama(JALAN_BACKWARD6, tuning::par[tuning::R6_TARUH_MUNDUR2_MS], 150);
+                gantiStepR6(S6_HADAP_H4);
+              }
+              break;
+            }
 
-            // t = millis();
-            // while (millis() - t <= 3000) {
-            //   legs::walkspeed = 400;
-            //   legs::shift6_right_high();
-            // }
+            // 10. (hanya kalau korban 3 di-skip) geser kiri ke korban 4 seperti alur lama
+            case S6_GANTI_H4: {
+              jalanSelama(JALAN_SHIFT6_LEFT_FAST, tuning::par[tuning::R6_GESER_H4_MS], 150);
+              gantiStepR6(S6_HADAP_H4);
+              break;
+            }
 
-            // t = millis();
-            // while (millis() - t <= 4000) {
-            //   legs::sapu();
-            // }
+            // 11. hadap korban 4 (r6_k_h4), lalu mundur sebentar untuk kamera
+            case S6_HADAP_H4: {
+              if (putarKompas(tuning::K_R6_H4)) {
+                jalanSelama(JALAN_BACKWARD6, tuning::par[tuning::R6_MUNDUR_CAM4_MS], 150);
+                camerastate[4] = true;
+                gantiStepR6(S6_AMBIL_H4);
+              }
+              break;
+            }
 
-            // t = millis();
-            // while (millis() - t <= 3500) {
-            //   legs::walkspeed = 150;
-            //   legs::backward6();
-            // }
-
-            // t = millis();
-            // while (millis() - t <= 4000) {
-            //   legs::sapu();
-            // }
-
-            // t = millis();
-            // while (millis() - t <= 3500) {
-            //   legs::walkspeed = 150;
-            //   legs::shift6_left_high();
-            // }
-
-            // // t = millis();
-            // // while (millis() - t <= 2000) {
-            // //   legs::shift6_right_high();
-            // // }
-
-            // t = millis();
-            // while (millis() - t <= 4000) {
-            //   legs::sapu();
-            // }
-
-            tembok6kanan = true;
-          }
-          // akhir Ruangan 6
-          if (wallfollowingR6 == true && positioningR6 == true && tembok6kanan == true && overallR6 == false) {
-            Serial.println("ruangan 7");
-            legs::walkspeed = 150;
-
-            if (kompas7set == false) {
-              int comVal = kompas(tuning::K_R6_KE_R7);
-              if (comVal == 0) {
-                kompas7set = true;
-              } else if (comVal == 1) {
-                legs::rotate6_right();
+            // 12. ambil korban 4 (skip kalau 2 detik tidak terlihat kamera)
+            case S6_AMBIL_H4: {
+              if (cam::camx == -1) {
+                if (timerCamR6 == 0) timerCamR6 = millis();
+                if (millis() - timerCamR6 >= 2000) {
+                  Serial.println("Human 4 tidak terdeteksi 2 detik -> skip");
+                  human[4] = true;
+                  timerCamR6 = 0;
+                  gantiStepR6(S6_H4_MUNDUR);
+                }
               } else {
-                legs::rotate6_left();
+                timerCamR6 = 0;
+                gethuman6puing(4, kompasTarget(tuning::K_R6_AMBIL_H4));
+                if (human[4] == true) {
+                  gantiStepR6(S6_H4_MUNDUR);
+                }
               }
+              break;
             }
 
-            if (kompas7set == true && mundur6 == false) {
+            // 13. mundur bawa korban 4
+            case S6_H4_MUNDUR: {
+              jalanSelama(JALAN_BACKWARD6, tuning::par[tuning::R6_MUNDUR_MS], 100);
+              gantiStepR6(S6_H4_ARAH1);
+              break;
+            }
+
+            // 14. putar ke r6_k_bawa_arah1 (default 42)
+            case S6_H4_ARAH1: {
+              if (putarKompas(tuning::K_R6_BAWA_ARAH1)) gantiStepR6(S6_H4_DEPAN);
+              break;
+            }
+
+            // 15. maju/mundur sampai TOF depan di r6_bawa_depan_min..max
+            case S6_H4_DEPAN: {
+              TOFDepan = TOF::getdepan();
+              if (TOFDepan < tuning::par[tuning::R6_BAWA_DEPAN_MIN]) {
+                legs::backward6();
+              } else if (TOFDepan > tuning::par[tuning::R6_BAWA_DEPAN_MAX]) {
+                legs::forward6();
+              } else {
+                gantiStepR6(S6_R7_ARAH);
+              }
+              break;
+            }
+
+            // 16. putar ke arah R7 (r6_k_ke_r7)
+            case S6_R7_ARAH: {
+              if (putarKompas(tuning::K_R6_KE_R7)) gantiStepR6(S6_R7_DEPAN);
+              break;
+            }
+
+            // 17. mundur sampai TOF depan di r6_r7_depan_min..max
+            case S6_R7_DEPAN: {
               TOFDepan = TOF::getdepan();
               if (TOFDepan < tuning::par[tuning::R6_R7_DEPAN_MIN]) {
                 legs::backward6();
               } else if (TOFDepan > tuning::par[tuning::R6_R7_DEPAN_MAX]) {
                 legs::forward6();
               } else {
-                mundur6 = true;
+                gantiStepR6(S6_R7_GESER);
               }
+              break;
             }
 
-            if (kompas7set == true && mundur6 == true) {
-              legs::walkspeed = 150;
-              unsigned long t = millis();
-              while (millis() - t <= tuning::par[tuning::R6_R7_GESER_MS]) {
-                legs::shift6_right_high_fast();
-              }
+            // 18. shift6_right_high_fast r6_r7_geser_ms, lalu R6 selesai
+            case S6_R7_GESER: {
+              jalanSelama(JALAN_SHIFT6_RIGHT_HIGH_FAST, tuning::par[tuning::R6_R7_GESER_MS], 150);
               overallR6 = true;
+              oled.clearBuffer();
+              oledPrint("Ruangan", 30);
+              oledPrint("7", 50);
+              oled.sendBuffer();
+              break;
+            }
+
+            default: {
+              Serial.println(String() + "stepR6 tidak dikenal: " + stepR6 + " -> reset ke 0");
+              gantiStepR6(S6_SHIFT_AWAL);
+              break;
             }
           }
-          }
+        }
         
 
 
@@ -1744,17 +1741,13 @@ void loop() {
                   legs::CapitTurun2();
                   t = millis();
                   while (millis() - t <= 1000) {
-                    legs::walkspeed = 200;
+                    legs::walkspeed = 130;
                     legs::backward();
                   }
                   legs::capitnaik(1);
                   delay(200);
                   legs::capitbuka();
-                  t = millis();
-                  while (millis() - t <= 3000) {
-                    legs::walkspeed = 200;
-                    legs::rotate6_right();
-                  }
+                  
                   overallR7 = true;
 
                   oled.clearBuffer();
@@ -1778,7 +1771,13 @@ void loop() {
             if (comVal == 0) {
               kompas8 = true;
               front8 = false;
+              unsigned long t = millis();
+                  while (millis() - t <= 2000) {
+                    legs::walkspeed = 200; // Pelankan gerakan agar robot stabil
+                    legs::shift_right();
+                  }
               legs::walkspeed = 150; // Pelankan gerakan agar robot stabil
+
               delay(500);            // Beri jeda agar pembacaan kamera stabil
 
               // CEK KORBAN ASLI
@@ -1800,7 +1799,7 @@ void loop() {
           // 2. Ambil Human 5
           else if (kompas8 == true && human[5] == false) {
             Serial.println("Get Human");
-            gethuman4(5);
+            gethuman2(5);
             capitnaik = true;
           }
 
@@ -1810,15 +1809,23 @@ void loop() {
             TOFDepan = TOF::getdepan();
             TOFKanan = TOF::getkanan();
             Serial.println("ruangan 9");
+            // unsigned long t = millis();
+            //       while (millis() - t <= 700) {
+            //         legs::walkspeed = 150; // Pelankan gerakan agar robot stabil
+            //         legs::backward();
+            //       }
 
             int comVal = kompas(tuning::K_R8_KE_R9);
             if (comVal == 0) {
               if (front8 == false) {
                 if (TOFDepan < tuning::par[tuning::R8_DEPAN_MIN]) {
+                  legs::walkspeed = 130;
                   legs::backward6();
-                } else if (TOFDepan > tuning::par[tuning::R8_DEPAN_MAX]) {
-                  legs::forward6();
-                } else {
+                // } else if (TOFDepan > tuning::par[tuning::R8_DEPAN_MAX]) {
+                //   legs::forward6();
+                // } 
+                }
+                else {
                   front8 = true;
                 }
               }

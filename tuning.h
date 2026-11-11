@@ -20,7 +20,10 @@ enum ParId {
   R4_DEPAN, R4_MUNDUR_MS, R4_DEPAN_MIN, R4_DEPAN_MAX, R4_KANAN_MIN, R4_KANAN_MAX, R4_ROTATE_MS,
   R5_KANAN, R5_DEPAN, R5_GESER_MS, R5_PUING_DEPAN,
   R6_KANAN, R6_MUNDUR_CAM_MS, R6_GESER_H4_MS, R6_MUNDUR_CAM4_MS, R6_MUNDUR_MS,
-  R6_KIRI_WF, R6_DEPAN_WF, R6_DEPAN_MIN, R6_DEPAN_MAX, R6_KIRI_MIN, R6_KIRI_MAX,
+  R6_STEP_AWAL, R6_MUNDUR_H3_MS,
+  R6_TARUH_DEPAN_MIN, R6_TARUH_DEPAN_MAX, R6_TARUH_KIRI_MIN, R6_TARUH_KIRI_MAX,
+  R6_TARUH_ROTATE_MS, R6_TARUH_MUNDUR_MS, R6_TARUH_MUNDUR2_MS,
+  R6_BAWA_DEPAN_MIN, R6_BAWA_DEPAN_MAX,
   R6_R7_DEPAN_MIN, R6_R7_DEPAN_MAX, R6_R7_GESER_MS,
   R7_KELUAR_DEPAN, R7_KELUAR_MS, R7_DEPAN_DEKAT, R7_DEPAN_JAUH, R7_DEPAN_MIN, R7_DEPAN_MAX,
   R8_DEPAN_MIN, R8_DEPAN_MAX,
@@ -33,16 +36,19 @@ struct ParDef { const char* nama; int def; };
 // nama (yang diketik di Serial) dan nilai default (= nilai lama di kode)
 const ParDef parDef[N_PAR] = {
   {"r1_kiri_buka", 550}, {"r1_mundur_ms", 2000}, {"r1_mundur2_ms", 2000},
-  {"r2_depan_jauh", 700},
+  {"r2_depan_jauh", 500},
   {"r3_shift_ms", 2000}, {"r3_depan_min", 270}, {"r3_depan_max", 290}, {"r3_kanan_min", 130}, {"r3_kanan_max", 150},
   {"r3_rotate_ms", 1200}, {"r3_mundur_ms", 2000}, {"r3_maju_ms", 2000}, {"r3_geser_ms", 2000}, {"r3_kanan_r4", 130},
-  {"r4_depan", 510}, {"r4_mundur_ms", 1500}, {"r4_depan_min", 240}, {"r4_depan_max", 260}, {"r4_kanan_min", 140}, {"r4_kanan_max", 170}, {"r4_rotate_ms", 1200},
-  {"r5_kanan", 285}, {"r5_depan", 100}, {"r5_geser_ms", 4000}, {"r5_puing_depan", 460},
+  {"r4_depan", 510}, {"r4_mundur_ms", 2000}, {"r4_depan_min", 220}, {"r4_depan_max", 250}, {"r4_kanan_min", 140}, {"r4_kanan_max", 170}, {"r4_rotate_ms", 1200},
+  {"r5_kanan", 320}, {"r5_depan", 100}, {"r5_geser_ms", 4000}, {"r5_puing_depan", 460},
   {"r6_kanan", 380}, {"r6_mundur_cam_ms", 1000}, {"r6_geser_h4_ms", 4000}, {"r6_mundur_cam4_ms", 2000}, {"r6_mundur_ms", 3000},
-  {"r6_kiri_wf", 220}, {"r6_depan_wf", 140}, {"r6_depan_min", 140}, {"r6_depan_max", 150}, {"r6_kiri_min", 160}, {"r6_kiri_max", 180},
+  {"r6_step_awal", 0}, {"r6_mundur_h3_ms", 5000},
+  {"r6_taruh_depan_min", 300}, {"r6_taruh_depan_max", 320}, {"r6_taruh_kiri_min", 140}, {"r6_taruh_kiri_max", 160},
+  {"r6_taruh_rotate_ms", 1200}, {"r6_taruh_mundur_ms", 2000}, {"r6_taruh_mundur2_ms", 3000},
+  {"r6_bawa_depan_min", 300}, {"r6_bawa_depan_max", 320},
   {"r6_r7_depan_min", 400}, {"r6_r7_depan_max", 460}, {"r6_r7_geser_ms", 7000},
-  {"r7_keluar_depan", 350}, {"r7_keluar_ms", 4000}, {"r7_depan_dekat", 100}, {"r7_depan_jauh", 200}, {"r7_depan_min", 230}, {"r7_depan_max", 240},
-  {"r8_depan_min", 100}, {"r8_depan_max", 490},
+  {"r7_keluar_depan", 350}, {"r7_keluar_ms", 2000}, {"r7_depan_dekat", 150}, {"r7_depan_jauh", 200}, {"r7_depan_min", 230}, {"r7_depan_max", 240},
+  {"r8_depan_min", 400}, {"r8_depan_max", 375},
   {"r9_geser_ms", 7000}, {"r9_kiri_min", 175}, {"r9_kiri_max", 195}, {"r9_depan_min", 250}, {"r9_depan_max", 270},
 };
 
@@ -59,7 +65,7 @@ enum KId {
   K_R3_LURUS, K_R3_KE_R4,
   K_R4_KAMERA, K_R4_BALIK, K_R4_KE_R5,
   K_R5_LURUS, K_R5_PUING,
-  K_R6_H3, K_R6_AMBIL_H3, K_R6_H4, K_R6_AMBIL_H4, K_R6_BALIK, K_R6_WF, K_R6_KE_R7,
+  K_R6_H3, K_R6_AMBIL_H3, K_R6_TARUH_ARAH1, K_R6_TARUH_ARAH2, K_R6_H4, K_R6_AMBIL_H4, K_R6_BAWA_ARAH1, K_R6_KE_R7,
   K_R7_TANGGA, K_R7_TARUH,
   K_R8_HUMAN, K_R8_KE_R9,
   K_R9_LURUS,
@@ -84,11 +90,12 @@ const KDef kDef[N_K] = {
   {"r5_k_puing",     "R5: arah ke puing sebelum R6", false},
   {"r6_k_h3",        "R6: hadap korban 3 (sebelum kamera)", false},
   {"r6_k_ambil_h3",  "R6: koreksi arah gethuman6puing korban 3", true},
+  {"r6_k_taruh_arah1", "R6: arah sebelum maju ke tempat taruh korban 3", false},
+  {"r6_k_taruh_arah2", "R6: arah akhir sebelum taruh korban 3 (+ setelah taruh)", false},
   {"r6_k_h4",        "R6: hadap korban 4 (sebelum kamera)", false},
   {"r6_k_ambil_h4",  "R6: koreksi arah gethuman6puing korban 4", true},
-  {"r6_k_balik",     "R6: putar balik setelah ambil korban", false},
-  {"r6_k_wf",        "R6: jaga arah saat wall following", false},
-  {"r6_k_ke_r7",     "R6: arah sebelum geser ke R7", false},
+  {"r6_k_bawa_arah1", "R6: arah setelah ambil korban 4 (sebelum maju)", false},
+  {"r6_k_ke_r7",     "R6: arah sebelum mundur & geser ke R7", false},
   {"r7_k_tangga",    "R7: jaga arah saat naik tangga", false},
   {"r7_k_taruh",     "R7: arah sebelum taruh korban", false},
   {"r8_k_human",     "R8: hadap korban 5", false},
@@ -100,34 +107,36 @@ TitikKompas kp[N_K];
 
 // default = nilai lama di kode (dibaca dari array cpos di .ino)
 void isiDefaultKompas() {
-  kp[K_HOME]        = { cposhomeR,     'F', 15 };
-  kp[K_R1_HUMAN]    = { cposhumanR[1], 'F', 15 };
-  kp[K_R1_AMBIL]    = { cposhumanR[1], 'F', 15 };
-  kp[K_R2_GESER]    = { cposR[2],      'F', 25 };
-  kp[K_R2_KE_R3]    = { cposR[3],      'R', 15 };
-  kp[K_R3_LURUS]    = { cposR[3],      'F', 15 };
-  kp[K_R3_KE_R4]    = { cposR[4],      'F', 15 };
-  kp[K_R4_KAMERA]   = { cposhumanR[2], 'L', 15 };
-  kp[K_R4_BALIK]    = { cposR[4],      'R', 15 };
-  kp[K_R4_KE_R5]    = { cposR[5],      'L', 15 };
-  kp[K_R5_LURUS]    = { cposR[5],      'F', 15 };
-  kp[K_R5_PUING]    = { cposPuingR,    'F', 5 };
-  kp[K_R6_H3]       = { cposhumanR[3], 'F', 15 };
-  kp[K_R6_AMBIL_H3] = { cposhumanR[3], 'F', 15 };
-  kp[K_R6_H4]       = { cposhumanR[3], 'L', 10 };
-  kp[K_R6_AMBIL_H4] = { 135,           'F', 15 };
-  kp[K_R6_BALIK]    = { cposR[6],      'F', 8 };
-  kp[K_R6_WF]       = { cposR[6],      'F', 10 };
-  kp[K_R6_KE_R7]    = { cposR[7],      'F', 2 };
-  kp[K_R7_TANGGA]   = { cpostanggaR,   'R', 20 };
-  kp[K_R7_TARUH]    = { cpossafeR[4],  'R', 5 };
-  kp[K_R8_HUMAN]    = { cposhumanR[5], 'F', 15 };
-  kp[K_R8_KE_R9]    = { cposR[8],      'L', 15 };
-  kp[K_R9_LURUS]    = { cposR[9],      'F', 15 };
+  // nilai hasil tuning (dari "show" terakhir)
+  kp[K_HOME]        = { 278, 'F', 50 };
+  kp[K_R1_HUMAN]    = { 275, 'F', 15 };
+  kp[K_R1_AMBIL]    = { 275, 'F', 15 };
+  kp[K_R2_GESER]    = { 270, 'F', 25 };
+  kp[K_R2_KE_R3]    = { 182, 'R', 15 };
+  kp[K_R3_LURUS]    = { 182, 'F', 15 };
+  kp[K_R3_KE_R4]    = { 260, 'F', 15 };
+  kp[K_R4_KAMERA]   = { 45,  'L', 15 };
+  kp[K_R4_BALIK]    = { 300, 'R', 15 };
+  kp[K_R4_KE_R5]    = { 310, 'F', 15 };
+  kp[K_R5_LURUS]    = { 285, 'F', 15 };
+  kp[K_R5_PUING]    = { 313, 'F', 15 };
+  kp[K_R6_H3]       = { 310, 'F', 15 };
+  kp[K_R6_AMBIL_H3] = { 310, 'F', 15 };
+  kp[K_R6_TARUH_ARAH1] = { 42, 'F', 5 };   // baru, belum di-tuning
+  kp[K_R6_TARUH_ARAH2] = { 35, 'F', 5 };   // baru, belum di-tuning
+  kp[K_R6_H4]       = { 310, 'L', 10 };
+  kp[K_R6_AMBIL_H4] = { 135, 'F', 15 };
+  kp[K_R6_BAWA_ARAH1] = { 42, 'F', 5 };    // baru, belum di-tuning
+  kp[K_R6_KE_R7]    = { 122, 'F', 2 };
+  kp[K_R7_TANGGA]   = { 110, 'F', 20 };
+  kp[K_R7_TARUH]    = { 20,  'R', 5 };
+  kp[K_R8_HUMAN]    = { 357, 'F', 15 };
+  kp[K_R8_KE_R9]    = { 25,  'F', 5 };
+  kp[K_R9_LURUS]    = { 13,  'F', 15 };
 }
 
 // ---------- Data yang disimpan ke flash ----------
-const uint32_t MAGIC = 0x54504432;  // "TPD2" (ganti kalau format berubah)
+const uint32_t MAGIC = 0x54504433;  // "TPD3" (ganti kalau format berubah)
 
 struct Simpan {
   uint32_t magic;
